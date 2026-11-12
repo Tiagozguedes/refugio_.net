@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Refugio.Application.DTOs.Cep;
 using Refugio.Application.UseCases.Cep;
+using Refugio.Infrastructure.Auth;
 
 namespace Refugio.Api.Endpoints;
 
@@ -11,7 +12,8 @@ public static class CepEndpoints
         api.MapGet("/cep/{cep}", Consultar)
             .WithTags("CEP")
             .WithName("ConsultarCep")
-            .WithSummary("Endereço de um CEP pelo ViaCEP, para preencher o formulário de refúgio")
+            .WithSummary("Endereço de um CEP pelo ViaCEP, para preencher o formulário de refúgio (GESTOR)")
+            .RequireAuthorization(Politicas.Gestor)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);

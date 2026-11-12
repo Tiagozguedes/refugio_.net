@@ -4,6 +4,7 @@ using Refugio.Api.Extensions;
 using Refugio.Api.Middlewares;
 using Refugio.Application;
 using Refugio.Infrastructure;
+using Refugio.Infrastructure.Auth;
 using Refugio.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +15,7 @@ builder.Services.AddDocumentacao();
 builder.Services.AddHealthChecks();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddAutenticacaoJwt(builder.Configuration);
 
 var app = builder.Build();
 
@@ -34,8 +36,11 @@ app.UseSwaggerUI(options =>
 });
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapHealthChecks("/health");
+app.MapAuthEndpoints();
 
 var api = app.MapGroup("/api/v1");
 api.MapRefugioEndpoints();
