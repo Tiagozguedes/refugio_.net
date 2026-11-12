@@ -12,9 +12,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
 builder.Services.AddContratoJson();
 builder.Services.AddDocumentacao();
-builder.Services.AddHealthChecks();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddVerificacoesDeSaude();
 builder.Services.AddAutenticacaoJwt(builder.Configuration);
 builder.Services.AddLimitesDeRequisicao(builder.Configuration);
 
@@ -42,7 +42,7 @@ app.UseAuthorization();
 // Depois da autenticação, para o limite contar por usuário do token.
 app.UseRateLimiter();
 
-app.MapHealthChecks("/health").DisableRateLimiting();
+app.MapHealthEndpoints();
 app.MapAuthEndpoints();
 
 var api = app.MapGroup("/api/v1");
