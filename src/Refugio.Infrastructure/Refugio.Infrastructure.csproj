@@ -12,6 +12,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Os testes de integração criam as tabelas de teste e rodam o mesmo seed da aplicação. -->
+    <InternalsVisibleTo Include="Refugio.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Refugio.Application\Refugio.Application.csproj" />
     <ProjectReference Include="..\Refugio.Domain\Refugio.Domain.csproj" />
   </ItemGroup>
@@ -24,7 +29,8 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.15" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.15" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageReference Include="Oracle.EntityFrameworkCore" Version="10.23.26400" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
   </ItemGroup>
 
 </Project>
