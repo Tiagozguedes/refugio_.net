@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Refugio.Api.Endpoints;
 using Refugio.Api.Extensions;
 using Refugio.Api.Middlewares;
 using Refugio.Application;
@@ -35,5 +36,9 @@ app.UseSwaggerUI(options =>
 app.UseHttpsRedirection();
 
 app.MapHealthChecks("/health");
+
+var api = app.MapGroup("/api/v1");
+api.MapRefugioEndpoints();
+api.MapCepEndpoints();
 
 app.Run();
