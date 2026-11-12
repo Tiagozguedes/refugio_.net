@@ -1,7 +1,69 @@
+namespace Refugio.UnitTests.Fakes;
+
 using Refugio.Application.Interfaces;
 using Refugio.Domain.Entities;
+using Refugio.Domain.Enums;
 
-namespace Refugio.UnitTests.Fakes;
+public static class Entidades
+{
+    /// <summary>Atribui o Id que o banco geraria (o setter é privado no domínio).</summary>
+    public static T ComId<T>(this T entidade, long id) where T : class
+    {
+        typeof(T).GetProperty("Id")!.SetValue(entidade, id);
+        return entidade;
+    }
+}
+
+public sealed class UsuarioAtualFake(long id, Papel papel = Papel.Idoso) : IUsuarioAtual
+{
+    public long Id { get; } = id;
+    public Papel Papel { get; } = papel;
+}
+
+public sealed class RefugioRepositoryFake : IRefugioRepository
+{
+    public List<Refugio> Refugios { get; } = [];
+
+    public Task<Refugio?> ObterPorIdAsync(long id, CancellationToken ct) =>
+        Task.FromResult(Refugios.FirstOrDefault(r => r.Id == id));
+
+    public Task<Refugio?> ObterParaReservaAsync(long id, CancellationToken ct) => ObterPorIdAsync(id, ct);
+
+    public Task<(IReadOnlyList<RefugioComOcupacao> Itens, int Total)> ListarAsync(
+        string? bairro, DateOnly data, int pagina, int tamanho, CancellationToken ct) =>
+        throw new NotSupportedException();
+
+    public void Adicionar(Refugio refugio) => Refugios.Add(refugio);
+
+    public void Remover(Refugio refugio) => Refugios.Remove(refugio);
+}
+
+public sealed class ReservaRepositoryFake : IReservaRepository
+{
+    public List<Reserva> Reservas { get; } = [];
+
+    public Task<Reserva?> ObterPorIdAsync(long id, CancellationToken ct) =>
+        Task.FromResult(Reservas.FirstOrDefault(r => r.Id == id));
+
+    public Task<Reserva?> ObterPorChaveIdempotenciaAsync(long idosoId, string chave, CancellationToken ct) =>
+        Task.FromResult(Reservas.FirstOrDefault(r => r.IdosoId == idosoId && r.ChaveIdempotencia == chave));
+
+    public Task<IReadOnlyList<Reserva>> ListarAtivasDoIdosoAPartirDeAsync(long idosoId, DateOnly data, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Reserva>>(Reservas
+            .Where(r => r.IdosoId == idosoId && r.Status == StatusReserva.Ativa && r.DataReserva >= data)
+            .OrderBy(r => r.DataReserva).ToList());
+
+    public Task<bool> IdosoTemReservaAtivaNoDiaAsync(long idosoId, DateOnly data, CancellationToken ct) =>
+        Task.FromResult(Reservas.Any(r => r.IdosoId == idosoId && r.DataReserva == data && r.Status == StatusReserva.Ativa));
+
+    public Task<int> ContarAtivasAsync(long refugioId, DateOnly data, CancellationToken ct) =>
+        Task.FromResult(Reservas.Count(r => r.RefugioId == refugioId && r.DataReserva == data && r.Status == StatusReserva.Ativa));
+
+    public Task<bool> RefugioTemReservasAtivasAPartirDeAsync(long refugioId, DateOnly data, CancellationToken ct) =>
+        Task.FromResult(Reservas.Any(r => r.RefugioId == refugioId && r.DataReserva >= data && r.Status == StatusReserva.Ativa));
+
+    public void Adicionar(Reserva reserva) => Reservas.Add(reserva);
+}
 
 /// <summary>Relógio fixo para testar regras que dependem de "hoje".</summary>
 public sealed class RelogioFixo(DateTimeOffset agora) : TimeProvider
