@@ -3,6 +3,7 @@ using Refugio.Api.Filters;
 using Refugio.Application.DTOs;
 using Refugio.Application.DTOs.Refugios;
 using Refugio.Application.UseCases.Refugios;
+using Refugio.Infrastructure.Auth;
 
 namespace Refugio.Api.Endpoints;
 
@@ -10,7 +11,8 @@ public static class RefugioEndpoints
 {
     public static RouteGroupBuilder MapRefugioEndpoints(this RouteGroupBuilder api)
     {
-        var grupo = api.MapGroup("/refugios").WithTags("Refúgios");
+        // Leitura para qualquer usuário logado; escrita só para GESTOR.
+        var grupo = api.MapGroup("/refugios").WithTags("Refúgios").RequireAuthorization();
 
         grupo.MapGet("/", Listar)
             .WithName("ListarRefugios")
@@ -25,18 +27,21 @@ public static class RefugioEndpoints
 
         grupo.MapPost("/", Criar)
             .WithName("CriarRefugio")
-            .WithSummary("Cadastra um refúgio")
+            .WithSummary("Cadastra um refúgio (GESTOR)")
+            .RequireAuthorization(Politicas.Gestor)
             .ComValidacao<RefugioRequest>();
 
         grupo.MapPut("/{id:long}", Atualizar)
             .WithName("AtualizarRefugio")
-            .WithSummary("Atualiza um refúgio")
+            .WithSummary("Atualiza um refúgio (GESTOR)")
+            .RequireAuthorization(Politicas.Gestor)
             .ComValidacao<RefugioRequest>()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         grupo.MapDelete("/{id:long}", Excluir)
             .WithName("ExcluirRefugio")
-            .WithSummary("Exclui um refúgio sem reservas ativas futuras")
+            .RequireAuthorization(Politicas.Gestor)
+            .WithSummary("Exclui um refúgio sem reservas ativas futuras (GESTOR)")
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
