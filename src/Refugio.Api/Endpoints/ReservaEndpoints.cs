@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Refugio.Api.Extensions;
 using Refugio.Api.Filters;
 using Refugio.Application.DTOs.Reservas;
 using Refugio.Application.UseCases.Reservas;
@@ -21,6 +22,7 @@ public static class ReservaEndpoints
                 "devolve a reserva já criada, sem duplicar; a mesma chave com outro refúgio ou data dá 422. " +
                 "409 sem vaga ou com reserva no mesmo dia; 422 se o refúgio estiver inativo.")
             .ComValidacao<CriarReservaRequest>()
+            .RequireRateLimiting(PoliticasDeLimite.Reservas)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
