@@ -28,6 +28,9 @@ internal static class ReservaErros
     }
 }
 
+/// <summary>Resultado da criação. <see cref="Repetido"/> indica que a Idempotency-Key já tinha gerado esta reserva.</summary>
+public sealed record ReservaCriada(ReservaResponse Reserva, bool Repetido);
+
 public sealed class CriarReserva(
     IRefugioRepository refugios,
     IReservaRepository reservas,
@@ -35,8 +38,11 @@ public sealed class CriarReserva(
     IUsuarioAtual usuarioAtual,
     TimeProvider relogio)
 {
-    public async Task<ReservaResponse> ExecutarAsync(CriarReservaRequest request, string chaveIdempotencia, CancellationToken ct)
+    public const int TamanhoMaximoChave = 100;
+
+    public async Task<ReservaCriada> ExecutarAsync(CriarReservaRequest request, string? chaveIdempotencia, CancellationToken ct)
     {
+        var chave = ValidarChave(chaveIdempotencia);
         var idosoId = usuarioAtual.Id;
         var refugioId = request.RefugioId!.Value;
         var data = request.DataReserva!.Value;
@@ -46,11 +52,23 @@ public sealed class CriarReserva(
         // Bloqueia o refúgio: pedidos simultâneos para ele esperam este terminar, e a contagem de vagas fica correta.
         var refugio = await refugios.ObterParaReservaAsync(refugioId, ct) ?? throw ReservaErros.RefugioNaoEncontrado();
 
+        // A chave é conferida depois do bloqueio: num toque duplo, o segundo pedido espera o primeiro gravar
+        // e então encontra a reserva pela chave, em vez de cair no 409 de "já tem reserva no dia".
+        var anterior = await reservas.ObterPorChaveIdempotenciaAsync(idosoId, chave, ct);
+        if (anterior is not null)
+        {
+            if (!anterior.MesmoPedido(refugioId, data))
+                throw new RegraDeNegocioException(
+                    "Idempotency-Key reutilizada",
+                    "Esta Idempotency-Key já foi usada em uma reserva com outro refúgio ou data. Gere uma nova chave.");
+            return new ReservaCriada(ReservaResponse.De(anterior), Repetido: true);
+        }
+
         var jaTemNoDia = await reservas.IdosoTemReservaAtivaNoDiaAsync(idosoId, data, ct);
         var ocupadas = await reservas.ContarAtivasAsync(refugioId, data, ct);
         refugio.GarantirQueAceitaReserva(data, relogio.HojeEmSaoPaulo(), ocupadas, jaTemNoDia);
 
-        var reserva = new Reserva(idosoId, refugio, data, chaveIdempotencia, relogio.AgoraUtcEmSegundos());
+        var reserva = new Reserva(idosoId, refugio, data, chave, relogio.AgoraUtcEmSegundos());
         reservas.Adicionar(reserva);
 
         try
@@ -59,12 +77,21 @@ public sealed class CriarReserva(
         }
         catch (RegistroDuplicadoException)
         {
-            // Mesmo idoso reservando dois refúgios diferentes ao mesmo tempo: o índice único do dia barra o segundo.
+            // Mesmo idoso reservando dois refúgios diferentes ao mesmo tempo: o índice único barra o segundo.
             throw ReservaErros.JaTemReservaNoDia(data);
         }
 
         await transacao.ConfirmarAsync(ct);
-        return ReservaResponse.De(reserva);
+        return new ReservaCriada(ReservaResponse.De(reserva), Repetido: false);
+    }
+
+    private static string ValidarChave(string? chave)
+    {
+        if (string.IsNullOrWhiteSpace(chave))
+            throw new DadosInvalidosException("Idempotency-Key", "Envie o header Idempotency-Key com um UUID gerado pelo app.");
+        if (chave.Length > TamanhoMaximoChave)
+            throw new DadosInvalidosException("Idempotency-Key", $"A Idempotency-Key deve ter até {TamanhoMaximoChave} caracteres.");
+        return chave.Trim();
     }
 }
 
