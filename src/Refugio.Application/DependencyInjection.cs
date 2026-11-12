@@ -13,7 +13,19 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         services.AddSingleton(TimeProvider.System);
+        AdicionarCasosDeUso(services);
 
         return services;
+    }
+
+    /// <summary>Registra cada classe pública de UseCases/ (ListarRefugios, CriarReserva...) como scoped.</summary>
+    private static void AdicionarCasosDeUso(IServiceCollection services)
+    {
+        var casosDeUso = typeof(DependencyInjection).Assembly.GetTypes()
+            .Where(t => t is { IsClass: true, IsAbstract: false, IsPublic: true }
+                && t.Namespace?.StartsWith("Refugio.Application.UseCases", StringComparison.Ordinal) == true);
+
+        foreach (var tipo in casosDeUso)
+            services.AddScoped(tipo);
     }
 }
