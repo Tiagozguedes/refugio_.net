@@ -18,12 +18,16 @@ public static class DependencyInjection
         return services;
     }
 
-    /// <summary>Registra cada classe pública de UseCases/ (ListarRefugios, CriarReserva...) como scoped.</summary>
+    /// <summary>
+    /// Registra como scoped cada caso de uso de UseCases/ (ListarRefugios, CriarReserva...):
+    /// classe pública com um método ExecutarAsync. Records de resultado ficam de fora.
+    /// </summary>
     private static void AdicionarCasosDeUso(IServiceCollection services)
     {
         var casosDeUso = typeof(DependencyInjection).Assembly.GetTypes()
             .Where(t => t is { IsClass: true, IsAbstract: false, IsPublic: true }
-                && t.Namespace?.StartsWith("Refugio.Application.UseCases", StringComparison.Ordinal) == true);
+                && t.Namespace?.StartsWith("Refugio.Application.UseCases", StringComparison.Ordinal) == true
+                && t.GetMethod("ExecutarAsync") is not null);
 
         foreach (var tipo in casosDeUso)
             services.AddScoped(tipo);

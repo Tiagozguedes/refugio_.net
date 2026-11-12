@@ -54,9 +54,15 @@ public static class ApiServiceExtensions
                 return Task.CompletedTask;
             });
 
-            // Só as operações protegidas pedem o token e documentam 401/403.
+            // Só as operações protegidas pedem o token e documentam 401/403. Todas podem dar 429.
             options.AddOperationTransformer((operacao, contexto, _) =>
             {
+                operacao.Responses ??= new OpenApiResponses();
+                operacao.Responses.TryAdd("429", new OpenApiResponse
+                {
+                    Description = "Limite de requisições excedido. O header Retry-After diz em quantos segundos tentar de novo.",
+                });
+
                 var metadados = contexto.Description.ActionDescriptor.EndpointMetadata;
                 var protegida = metadados.OfType<IAuthorizeData>().Any() && !metadados.OfType<IAllowAnonymous>().Any();
                 if (!protegida)
@@ -66,7 +72,6 @@ public static class ApiServiceExtensions
                 [
                     new OpenApiSecurityRequirement { [new OpenApiSecuritySchemeReference(EsquemaBearer, contexto.Document)] = [] },
                 ];
-                operacao.Responses ??= new OpenApiResponses();
                 operacao.Responses.TryAdd("401", new OpenApiResponse { Description = "Token ausente, inválido ou expirado." });
                 operacao.Responses.TryAdd("403", new OpenApiResponse { Description = "O papel do usuário não permite esta operação." });
                 return Task.CompletedTask;

@@ -37,7 +37,7 @@ public class ReservaUseCasesTests
     {
         NovoRefugio(3);
 
-        var resposta = await NovoCriar().ExecutarAsync(new CriarReservaRequest(3, Hoje.AddDays(1)), "chave-1", default);
+        var (resposta, _) = await NovoCriar().ExecutarAsync(new CriarReservaRequest(3, Hoje.AddDays(1)), "chave-1", default);
 
         var reserva = Assert.Single(_reservas.Reservas);
         Assert.Equal(IdosoId, reserva.IdosoId);
@@ -77,7 +77,7 @@ public class ReservaUseCasesTests
         cancelada.Cancelar(Hoje);
         _reservas.Adicionar(cancelada);
 
-        var resposta = await NovoCriar().ExecutarAsync(new CriarReservaRequest(3, Hoje), "c", default);
+        var (resposta, _) = await NovoCriar().ExecutarAsync(new CriarReservaRequest(3, Hoje), "c", default);
 
         Assert.Equal(StatusReserva.Ativa, resposta.Status);
     }
@@ -153,6 +153,65 @@ public class ReservaUseCasesTests
         var lista = await new ListarMinhasReservas(_reservas, new UsuarioAtualFake(IdosoId), _relogio).ExecutarAsync(default);
 
         Assert.Equal([2L, 1L], lista.Select(r => r.Id));
+    }
+
+    [Fact]
+    public async Task Mesma_chave_com_mesmo_corpo_devolve_a_reserva_original_sem_criar_outra()
+    {
+        NovoRefugio(3);
+        var pedido = new CriarReservaRequest(3, Hoje);
+        var (primeira, _) = await NovoCriar().ExecutarAsync(pedido, "6f1c2a9e", default);
+        _reservas.Reservas[0].ComId(41);
+
+        var (repetida, repetido) = await NovoCriar().ExecutarAsync(pedido, "6f1c2a9e", default);
+
+        Assert.True(repetido);
+        Assert.Equal(41, repetida.Id);
+        Assert.Single(_reservas.Reservas);
+        Assert.Equal(1, _unitOfWork.Salvamentos);
+        Assert.Equal(primeira.DataReserva, repetida.DataReserva);
+    }
+
+    [Fact]
+    public async Task Mesma_chave_com_outro_refugio_ou_data_da_422()
+    {
+        NovoRefugio(3);
+        NovoRefugio(4);
+        await NovoCriar().ExecutarAsync(new CriarReservaRequest(3, Hoje), "chave", default);
+
+        var erro = await Assert.ThrowsAsync<RegraDeNegocioException>(() =>
+            NovoCriar().ExecutarAsync(new CriarReservaRequest(4, Hoje), "chave", default));
+        await Assert.ThrowsAsync<RegraDeNegocioException>(() =>
+            NovoCriar().ExecutarAsync(new CriarReservaRequest(3, Hoje.AddDays(1)), "chave", default));
+
+        Assert.Equal("Idempotency-Key reutilizada", erro.Titulo);
+        Assert.Single(_reservas.Reservas);
+    }
+
+    [Fact]
+    public async Task A_chave_vale_por_idoso_outro_idoso_pode_usar_a_mesma()
+    {
+        NovoRefugio(3);
+        await NovoCriar(idoso: 1).ExecutarAsync(new CriarReservaRequest(3, Hoje), "chave", default);
+
+        var (_, repetido) = await NovoCriar(idoso: 2).ExecutarAsync(new CriarReservaRequest(3, Hoje), "chave", default);
+
+        Assert.False(repetido);
+        Assert.Equal(2, _reservas.Reservas.Count);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Sem_idempotency_key_da_400_no_campo_do_header(string? chave)
+    {
+        NovoRefugio(3);
+
+        var erro = await Assert.ThrowsAsync<DadosInvalidosException>(() =>
+            NovoCriar().ExecutarAsync(new CriarReservaRequest(3, Hoje), chave, default));
+
+        Assert.Equal("Idempotency-Key", erro.Campo);
     }
 
     [Fact]

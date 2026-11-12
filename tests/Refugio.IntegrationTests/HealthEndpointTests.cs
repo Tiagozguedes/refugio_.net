@@ -16,7 +16,7 @@ public class HealthEndpointTests(WebApplicationFactory<Program> factory)
                 .UseSetting("Jwt:Chave", "chave-de-teste-com-mais-de-32-caracteres!"))
             .CreateClient();
 
-        var response = await client.GetAsync("/health");
+        var response = await client.GetAsync("/health/live");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
