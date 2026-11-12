@@ -12,7 +12,8 @@ public class HealthEndpointTests(WebApplicationFactory<Program> factory)
     {
         var client = factory.WithWebHostBuilder(b => b
                 .UseSetting("ConnectionStrings:Refugio", "Host=localhost;Database=nao_usado")
-                .UseSetting("Database:AplicarMigracoesAoIniciar", "false"))
+                .UseSetting("Database:AplicarMigracoesAoIniciar", "false")
+                .UseSetting("Jwt:Chave", "chave-de-teste-com-mais-de-32-caracteres!"))
             .CreateClient();
 
         var response = await client.GetAsync("/health");
