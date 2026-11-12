@@ -3,7 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Oracle.EntityFrameworkCore.Metadata;
 using Refugio.Infrastructure.Data;
 
 #nullable disable
@@ -18,198 +18,198 @@ namespace Refugio.Infrastructure.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "10.0.15")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            OracleModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.Entity("Refugio.Domain.Entities.Refugio", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("NUMBER(19)")
+                        .HasColumnName("ID");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<TimeOnly>("Abre")
-                        .HasColumnType("time without time zone")
-                        .HasColumnName("abre");
+                    b.Property<string>("Abre")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR2(5)")
+                        .HasColumnName("ABRE");
 
                     b.Property<bool>("Acessivel")
-                        .HasColumnType("boolean")
-                        .HasColumnName("acessivel");
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("ACESSIVEL");
 
                     b.Property<bool>("Ativo")
-                        .HasColumnType("boolean")
-                        .HasColumnName("ativo");
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("ATIVO");
 
                     b.Property<string>("Bairro")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("bairro");
+                        .HasColumnType("NVARCHAR2(100)")
+                        .HasColumnName("BAIRRO");
 
                     b.Property<int>("Capacidade")
-                        .HasColumnType("integer")
-                        .HasColumnName("capacidade");
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("CAPACIDADE");
 
                     b.Property<string>("Cep")
                         .IsRequired()
                         .HasMaxLength(9)
-                        .HasColumnType("character varying(9)")
-                        .HasColumnName("cep");
+                        .HasColumnType("NVARCHAR2(9)")
+                        .HasColumnName("CEP");
 
                     b.Property<string>("Endereco")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("endereco");
+                        .HasColumnType("NVARCHAR2(200)")
+                        .HasColumnName("ENDERECO");
 
-                    b.Property<TimeOnly>("Fecha")
-                        .HasColumnType("time without time zone")
-                        .HasColumnName("fecha");
+                    b.Property<string>("Fecha")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR2(5)")
+                        .HasColumnName("FECHA");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("nome");
+                        .HasColumnType("NVARCHAR2(150)")
+                        .HasColumnName("NOME");
 
                     b.Property<string>("Tipo")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("tipo");
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("TIPO");
 
                     b.HasKey("Id")
-                        .HasName("pk_refugio");
+                        .HasName("PK_T_RFG_REFUGIO");
 
                     b.HasIndex("Bairro")
-                        .HasDatabaseName("ix_refugio_bairro");
+                        .HasDatabaseName("IX_T_RFG_REFUGIO_BAIRRO");
 
-                    b.ToTable("refugio", (string)null);
+                    b.ToTable("T_RFG_REFUGIO");
                 });
 
             modelBuilder.Entity("Refugio.Domain.Entities.Reserva", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("NUMBER(19)")
+                        .HasColumnName("ID");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("ChaveIdempotencia")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("chave_idempotencia");
+                        .HasColumnType("NVARCHAR2(100)")
+                        .HasColumnName("CHAVE_IDEMPOTENCIA");
 
                     b.Property<DateTimeOffset>("CriadoEm")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("criado_em");
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
+                        .HasColumnName("CRIADO_EM");
 
-                    b.Property<DateOnly>("DataReserva")
-                        .HasColumnType("date")
-                        .HasColumnName("data_reserva");
+                    b.Property<DateTime>("DataReserva")
+                        .HasColumnType("DATE")
+                        .HasColumnName("DATA_RESERVA");
 
                     b.Property<long>("IdosoId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("idoso_id");
+                        .HasColumnType("NUMBER(19)")
+                        .HasColumnName("IDOSO_ID");
 
                     b.Property<long>("RefugioId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("refugio_id");
+                        .HasColumnType("NUMBER(19)")
+                        .HasColumnName("REFUGIO_ID");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("status");
+                        .HasColumnType("NVARCHAR2(20)")
+                        .HasColumnName("STATUS");
 
                     b.HasKey("Id")
-                        .HasName("pk_reserva");
+                        .HasName("PK_T_RFG_RESERVA");
 
                     b.HasIndex("IdosoId", "ChaveIdempotencia")
                         .IsUnique()
-                        .HasDatabaseName("ux_reserva_idoso_chave");
+                        .HasDatabaseName("UX_T_RFG_RESERVA_IDOSO_ID_CHAVE_IDEMPOTENCIA");
 
                     b.HasIndex("IdosoId", "DataReserva")
-                        .IsUnique()
-                        .HasDatabaseName("ux_reserva_idoso_dia_ativa")
-                        .HasFilter("status = 'ATIVA'");
+                        .HasDatabaseName("IX_T_RFG_RESERVA_IDOSO_ID_DATA_RESERVA");
 
                     b.HasIndex("RefugioId", "DataReserva", "Status")
-                        .HasDatabaseName("ix_reserva_refugio_id_data_reserva_status");
+                        .HasDatabaseName("IX_T_RFG_RESERVA_REFUGIO_ID_DATA_RESERVA_STATUS");
 
-                    b.ToTable("reserva", (string)null);
+                    b.ToTable("T_RFG_RESERVA");
                 });
 
             modelBuilder.Entity("Refugio.Domain.Entities.Usuario", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("NUMBER(19)")
+                        .HasColumnName("ID");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Bairro")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("bairro");
+                        .HasColumnType("NVARCHAR2(100)")
+                        .HasColumnName("BAIRRO");
 
                     b.Property<string>("ContatoEmergenciaNome")
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("contato_emergencia_nome");
+                        .HasColumnType("NVARCHAR2(150)")
+                        .HasColumnName("CONTATO_EMERGENCIA_NOME");
 
                     b.Property<string>("ContatoEmergenciaTelefone")
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("contato_emergencia_telefone");
+                        .HasColumnType("NVARCHAR2(20)")
+                        .HasColumnName("CONTATO_EMERGENCIA_TELEFONE");
 
                     b.Property<DateTimeOffset>("CriadoEm")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("criado_em");
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
+                        .HasColumnName("CRIADO_EM");
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("email");
+                        .HasColumnType("NVARCHAR2(200)")
+                        .HasColumnName("EMAIL");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("nome");
+                        .HasColumnType("NVARCHAR2(150)")
+                        .HasColumnName("NOME");
 
                     b.Property<string>("Papel")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("papel");
+                        .HasColumnType("NVARCHAR2(20)")
+                        .HasColumnName("PAPEL");
 
                     b.Property<string>("SenhaHash")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("senha_hash");
+                        .HasColumnType("NVARCHAR2(200)")
+                        .HasColumnName("SENHA_HASH");
 
                     b.Property<string>("Telefone")
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("telefone");
+                        .HasColumnType("NVARCHAR2(20)")
+                        .HasColumnName("TELEFONE");
 
                     b.HasKey("Id")
-                        .HasName("pk_usuario");
+                        .HasName("PK_T_RFG_USUARIO");
 
                     b.HasIndex("Email")
                         .IsUnique()
-                        .HasDatabaseName("ix_usuario_email");
+                        .HasDatabaseName("UX_T_RFG_USUARIO_EMAIL");
 
-                    b.ToTable("usuario", (string)null);
+                    b.ToTable("T_RFG_USUARIO");
                 });
 
             modelBuilder.Entity("Refugio.Domain.Entities.Reserva", b =>
@@ -219,14 +219,14 @@ namespace Refugio.Infrastructure.Data.Migrations
                         .HasForeignKey("IdosoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fk_reserva_usuario");
+                        .HasConstraintName("FK_T_RFG_RESERVA_USUARIO");
 
                     b.HasOne("Refugio.Domain.Entities.Refugio", "Refugio")
                         .WithMany()
                         .HasForeignKey("RefugioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_reserva_refugio");
+                        .HasConstraintName("FK_T_RFG_RESERVA_REFUGIO");
 
                     b.Navigation("Refugio");
                 });

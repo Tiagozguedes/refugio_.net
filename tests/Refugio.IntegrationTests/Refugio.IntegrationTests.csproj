@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Refugio.Api\Refugio.Api.csproj" />
+    <ProjectReference Include="..\..\src\Refugio.Infrastructure\Refugio.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

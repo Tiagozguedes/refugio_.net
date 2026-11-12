@@ -6,45 +6,60 @@ using Refugio.Domain.Entities;
 using Refugio.Domain.Enums;
 using Refugio.Infrastructure.Mappings;
 
-public class RefugioDbContext(DbContextOptions<RefugioDbContext> options) : DbContext(options)
+public class RefugioDbContext(DbContextOptions<RefugioDbContext> options, ConfiguracaoBanco banco) : DbContext(options)
 {
+    public ConfiguracaoBanco Banco { get; } = banco;
+
     public DbSet<Refugio> Refugios => Set<Refugio>();
     public DbSet<Reserva> Reservas => Set<Reserva>();
     public DbSet<Usuario> Usuarios => Set<Usuario>();
+
+    /// <summary>Nome físico da tabela de uma entidade (ex.: T_RFG_REFUGIO), para o SQL escrito à mão.</summary>
+    public string Tabela<T>() => Model.FindEntityType(typeof(T))!.GetTableName()!;
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<TipoRefugio>().HaveConversion<EnumMaiusculoConverter<TipoRefugio>>().HaveMaxLength(30);
         configurationBuilder.Properties<StatusReserva>().HaveConversion<EnumMaiusculoConverter<StatusReserva>>().HaveMaxLength(20);
         configurationBuilder.Properties<Papel>().HaveConversion<EnumMaiusculoConverter<Papel>>().HaveMaxLength(20);
+        configurationBuilder.Properties<DateOnly>().HaveConversion<DataOracleConverter>().HaveColumnType("DATE");
+        configurationBuilder.Properties<TimeOnly>().HaveConversion<HoraOracleConverter>().HaveColumnType("VARCHAR2(5)");
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Aplica todo IEntityTypeConfiguration<T> declarado em Mappings/.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(RefugioDbContext).Assembly);
-        UsarSnakeCase(modelBuilder);
+        NomearNoPadraoOracle(modelBuilder);
     }
 
-    /// <summary>Colunas e restrições em snake_case (contato_emergencia_nome), como no contrato.</summary>
-    private static void UsarSnakeCase(ModelBuilder modelBuilder)
+    /// <summary>
+    /// Tabelas, colunas e restrições em maiúsculas com sublinhado, como de costume no Oracle:
+    /// T_RFG_USUARIO.CONTATO_EMERGENCIA_NOME. Índices e restrições levam o nome da tabela, porque
+    /// no Oracle esses nomes são únicos no schema inteiro.
+    /// </summary>
+    private void NomearNoPadraoOracle(ModelBuilder modelBuilder)
     {
-        static string Snake(string nome) => JsonNamingPolicy.SnakeCaseLower.ConvertName(nome);
+        static string Maiusculo(string nome) => JsonNamingPolicy.SnakeCaseUpper.ConvertName(nome);
 
         foreach (var entidade in modelBuilder.Model.GetEntityTypes())
         {
-            var tabela = entidade.GetTableName()!;
+            var tabela = Banco.PrefixoTabelas + Maiusculo(entidade.ClrType.Name);
+            entidade.SetTableName(tabela);
 
             foreach (var propriedade in entidade.GetProperties())
-                propriedade.SetColumnName(Snake(propriedade.Name));
+                propriedade.SetColumnName(Maiusculo(propriedade.Name));
 
-            entidade.FindPrimaryKey()?.SetName($"pk_{tabela}");
+            entidade.FindPrimaryKey()?.SetName($"PK_{tabela}");
 
             foreach (var fk in entidade.GetForeignKeys())
-                fk.SetConstraintName($"fk_{tabela}_{fk.PrincipalEntityType.GetTableName()}");
+                fk.SetConstraintName($"FK_{tabela}_{Maiusculo(fk.PrincipalEntityType.ClrType.Name)}");
 
-            foreach (var indice in entidade.GetIndexes().Where(i => i.GetDatabaseName()!.StartsWith("IX_")))
-                indice.SetDatabaseName($"ix_{tabela}_{string.Join('_', indice.Properties.Select(p => Snake(p.Name)))}");
+            foreach (var indice in entidade.GetIndexes())
+            {
+                var colunas = string.Join('_', indice.Properties.Select(p => Maiusculo(p.Name)));
+                indice.SetDatabaseName($"{(indice.IsUnique ? "UX" : "IX")}_{tabela}_{colunas}");
+            }
         }
     }
 }

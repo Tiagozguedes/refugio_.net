@@ -18,6 +18,7 @@ public class ReservaUseCasesTests
 
     private readonly RefugioRepositoryFake _refugios = new();
     private readonly ReservaRepositoryFake _reservas = new();
+    private readonly UsuarioRepositoryFake _usuarios = new();
     private readonly UnitOfWorkFake _unitOfWork = new();
     private readonly RelogioFixo _relogio = new(Agora);
 
@@ -30,7 +31,7 @@ public class ReservaUseCasesTests
     }
 
     private CriarReserva NovoCriar(long idoso = IdosoId) =>
-        new(_refugios, _reservas, _unitOfWork, new UsuarioAtualFake(idoso), _relogio);
+        new(_refugios, _reservas, _usuarios, _unitOfWork, new UsuarioAtualFake(idoso), _relogio);
 
     [Fact]
     public async Task Cria_reserva_ativa_para_o_idoso_do_token_com_nome_e_endereco_do_refugio()
@@ -40,6 +41,7 @@ public class ReservaUseCasesTests
         var (resposta, _) = await NovoCriar().ExecutarAsync(new CriarReservaRequest(3, Hoje.AddDays(1)), "chave-1", default);
 
         var reserva = Assert.Single(_reservas.Reservas);
+        Assert.Equal([IdosoId], _usuarios.Bloqueados);
         Assert.Equal(IdosoId, reserva.IdosoId);
         Assert.Equal("chave-1", reserva.ChaveIdempotencia);
         Assert.Equal(StatusReserva.Ativa, resposta.Status);

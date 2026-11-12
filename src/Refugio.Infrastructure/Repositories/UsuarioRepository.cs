@@ -16,5 +16,14 @@ internal sealed class UsuarioRepository(RefugioDbContext db) : IUsuarioRepositor
     public Task<bool> EmailEmUsoAsync(string email, CancellationToken ct) =>
         db.Usuarios.AnyAsync(u => u.Email == email, ct);
 
+    public async Task BloquearParaReservaAsync(long id, CancellationToken ct)
+    {
+        // SELECT ... FOR UPDATE na linha do idoso: duas reservas dele ao mesmo tempo (mesmo em refúgios
+        // diferentes) passam a ser atendidas em fila, e a regra "uma por dia" não é furada.
+        // Só o nome da tabela (vindo do modelo do EF) entra no texto; o id vai como parâmetro.
+        var sql = $"SELECT * FROM {db.Tabela<Usuario>()} WHERE ID = {{0}} FOR UPDATE";
+        await db.Usuarios.FromSqlRaw(sql, id).AsNoTracking().ToListAsync(ct);
+    }
+
     public void Adicionar(Usuario usuario) => db.Usuarios.Add(usuario);
 }

@@ -1,19 +1,22 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
-using Npgsql;
+using Oracle.ManagedDataAccess.Client;
 using Refugio.Application.Interfaces;
 
 namespace Refugio.Infrastructure.Data;
 
 internal sealed class UnitOfWork(RefugioDbContext db) : IUnitOfWork
 {
+    /// <summary>ORA-00001: violação de restrição única.</summary>
+    private const int ViolacaoDeUnicidade = 1;
+
     public async Task SalvarAsync(CancellationToken ct)
     {
         try
         {
             await db.SaveChangesAsync(ct);
         }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        catch (DbUpdateException ex) when (ex.InnerException is OracleException { Number: ViolacaoDeUnicidade })
         {
             throw new RegistroDuplicadoException(ex);
         }

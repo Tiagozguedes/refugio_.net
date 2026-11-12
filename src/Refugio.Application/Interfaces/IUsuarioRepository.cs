@@ -11,5 +11,8 @@ public interface IUsuarioRepository
 
     Task<bool> EmailEmUsoAsync(string email, CancellationToken ct);
 
+    /// <summary>Bloqueia a linha do idoso até o fim da transação, para serializar as reservas dele.</summary>
+    Task BloquearParaReservaAsync(long id, CancellationToken ct);
+
     void Adicionar(Usuario usuario);
 }
