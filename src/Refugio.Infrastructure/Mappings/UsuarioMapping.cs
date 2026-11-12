@@ -8,7 +8,6 @@ public sealed class UsuarioMapping : IEntityTypeConfiguration<Usuario>
 {
     public void Configure(EntityTypeBuilder<Usuario> builder)
     {
-        builder.ToTable("usuario");
         builder.HasKey(u => u.Id);
 
         builder.Property(u => u.Nome).HasMaxLength(150).IsRequired();

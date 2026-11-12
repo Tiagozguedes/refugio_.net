@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Refugio.Application.Interfaces;
@@ -16,10 +17,12 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException(
                 "Connection string 'Refugio' não configurada. Use user-secrets ou a variável ConnectionStrings__Refugio.");
 
+        var banco = new ConfiguracaoBanco(configuration["Database:PrefixoTabelas"] ?? ConfiguracaoBanco.PrefixoPadrao);
         var senhaUsuariosDeTeste = configuration["Seed:SenhaUsuarios"] ?? "Senha@123";
 
+        services.AddSingleton(banco);
         services.AddDbContext<RefugioDbContext>(options => options
-            .UseNpgsql(connectionString)
+            .UsarOracle(connectionString, banco)
             .UseSeeding((db, _) => SeedData.Semear((RefugioDbContext)db, senhaUsuariosDeTeste))
             .UseAsyncSeeding((db, _, ct) => SeedData.SemearAsync((RefugioDbContext)db, senhaUsuariosDeTeste, ct)));
 
@@ -35,5 +38,20 @@ public static class DependencyInjection
         });
 
         return services;
+    }
+
+    /// <summary>Oracle 19c (o da FIAP), com a tabela de histórico de migrações também prefixada.</summary>
+    public static DbContextOptionsBuilder UsarOracle(this DbContextOptionsBuilder options, string connectionString, ConfiguracaoBanco banco) =>
+        options
+            .UseOracle(connectionString, oracle => oracle
+                .UseOracleSQLCompatibility(OracleSQLCompatibility.DatabaseVersion19)
+                .MigrationsHistoryTable(banco.TabelaHistoricoMigracoes))
+            .ReplaceService<IModelCacheKeyFactory, PrefixoModelCacheKeyFactory>();
+
+    public static DbContextOptionsBuilder<T> UsarOracle<T>(this DbContextOptionsBuilder<T> options, string connectionString, ConfiguracaoBanco banco)
+        where T : DbContext
+    {
+        ((DbContextOptionsBuilder)options).UsarOracle(connectionString, banco);
+        return options;
     }
 }

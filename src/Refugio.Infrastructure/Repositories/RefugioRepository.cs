@@ -14,9 +14,9 @@ internal sealed class RefugioRepository(RefugioDbContext db) : IRefugioRepositor
     public async Task<Refugio?> ObterParaReservaAsync(long id, CancellationToken ct)
     {
         // SELECT ... FOR UPDATE: segura a linha até o commit da transação da reserva.
-        var encontrados = await db.Refugios
-            .FromSql($"SELECT * FROM refugio WHERE id = {id} FOR UPDATE")
-            .ToListAsync(ct);
+        // Só o nome da tabela (vindo do modelo do EF) entra no texto; o id vai como parâmetro.
+        var sql = $"SELECT * FROM {db.Tabela<Refugio>()} WHERE ID = {{0}} FOR UPDATE";
+        var encontrados = await db.Refugios.FromSqlRaw(sql, id).ToListAsync(ct);
         return encontrados.SingleOrDefault();
     }
 
