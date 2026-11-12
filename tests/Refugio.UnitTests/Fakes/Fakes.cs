@@ -106,6 +106,14 @@ public sealed class UsuarioRepositoryFake : IUsuarioRepository
     public Task<bool> EmailEmUsoAsync(string email, CancellationToken ct) =>
         Task.FromResult(Usuarios.Any(u => u.Email == email));
 
+    public List<long> Bloqueados { get; } = [];
+
+    public Task BloquearParaReservaAsync(long id, CancellationToken ct)
+    {
+        Bloqueados.Add(id);
+        return Task.CompletedTask;
+    }
+
     public void Adicionar(Usuario usuario) => Usuarios.Add(usuario);
 }
 

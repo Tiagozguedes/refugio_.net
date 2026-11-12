@@ -8,7 +8,6 @@ public sealed class ReservaMapping : IEntityTypeConfiguration<Reserva>
 {
     public void Configure(EntityTypeBuilder<Reserva> builder)
     {
-        builder.ToTable("reserva");
         builder.HasKey(r => r.Id);
 
         builder.Property(r => r.ChaveIdempotencia).HasMaxLength(100).IsRequired();
@@ -24,16 +23,12 @@ public sealed class ReservaMapping : IEntityTypeConfiguration<Reserva>
             .HasForeignKey(r => r.IdosoId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Um idoso tem no máximo uma reserva ativa por dia. O índice garante isso mesmo com pedidos simultâneos.
-        builder.HasIndex(r => new { r.IdosoId, r.DataReserva })
-            .IsUnique()
-            .HasFilter("status = 'ATIVA'")
-            .HasDatabaseName("ux_reserva_idoso_dia_ativa");
+        // A mesma Idempotency-Key nunca gera duas reservas do mesmo idoso, nem com pedidos simultâneos.
+        builder.HasIndex(r => new { r.IdosoId, r.ChaveIdempotencia }).IsUnique();
 
-        // A mesma Idempotency-Key nunca gera duas reservas do mesmo idoso.
-        builder.HasIndex(r => new { r.IdosoId, r.ChaveIdempotencia })
-            .IsUnique()
-            .HasDatabaseName("ux_reserva_idoso_chave");
+        // "Uma reserva ativa por idoso por dia" é garantida pelo bloqueio da linha do idoso em CriarReserva
+        // (o Oracle não tem índice único parcial). Este índice acelera essa conferência.
+        builder.HasIndex(r => new { r.IdosoId, r.DataReserva });
 
         // Contagem de vagas ocupadas por refúgio e dia.
         builder.HasIndex(r => new { r.RefugioId, r.DataReserva, r.Status });

@@ -4,11 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Refugio.Domain.Entities;
 
+/// <summary>Nome da tabela e das colunas vem da convenção em RefugioDbContext (T_RFG_REFUGIO).</summary>
 public sealed class RefugioMapping : IEntityTypeConfiguration<Refugio>
 {
     public void Configure(EntityTypeBuilder<Refugio> builder)
     {
-        builder.ToTable("refugio");
         builder.HasKey(r => r.Id);
 
         builder.Property(r => r.Nome).HasMaxLength(150).IsRequired();

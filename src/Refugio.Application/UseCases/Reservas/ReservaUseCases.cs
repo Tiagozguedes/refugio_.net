@@ -34,6 +34,7 @@ public sealed record ReservaCriada(ReservaResponse Reserva, bool Repetido);
 public sealed class CriarReserva(
     IRefugioRepository refugios,
     IReservaRepository reservas,
+    IUsuarioRepository usuarios,
     IUnitOfWork unitOfWork,
     IUsuarioAtual usuarioAtual,
     TimeProvider relogio)
@@ -49,7 +50,10 @@ public sealed class CriarReserva(
 
         await using var transacao = await unitOfWork.IniciarTransacaoAsync(ct);
 
-        // Bloqueia o refúgio: pedidos simultâneos para ele esperam este terminar, e a contagem de vagas fica correta.
+        // Bloqueios sempre na mesma ordem (idoso, depois refúgio) para não haver deadlock:
+        // - o do idoso põe em fila as reservas dele, garantindo uma por dia;
+        // - o do refúgio põe em fila os pedidos para ele, e a contagem de vagas fica correta.
+        await usuarios.BloquearParaReservaAsync(idosoId, ct);
         var refugio = await refugios.ObterParaReservaAsync(refugioId, ct) ?? throw ReservaErros.RefugioNaoEncontrado();
 
         // A chave é conferida depois do bloqueio: num toque duplo, o segundo pedido espera o primeiro gravar
