@@ -1,0 +1,5 @@
+@Refugio.Api_HostAddress = http://localhost:5159
+
+GET {{Refugio.Api_HostAddress}}/health
+
+###
