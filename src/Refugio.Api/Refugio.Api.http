@@ -1,5 +1,101 @@
-@Refugio.Api_HostAddress = http://localhost:5159
+# Roteiro da demo (mesma ordem do vídeo do app). Use no VS Code (REST Client) ou no Visual Studio.
+@api = http://localhost:5159
 
-GET {{Refugio.Api_HostAddress}}/health
+### Saúde: API, banco e ViaCEP
+GET {{api}}/health
+
+### 1. Cadastro (cria sempre IDOSO)
+POST {{api}}/auth/registrar
+Content-Type: application/json
+
+{ "nome": "Ana Lima", "email": "ana.lima@email.com", "senha": "Senha@123" }
+
+### 2. Login como idoso (copie o token para @tokenIdoso)
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{ "email": "maria@email.com", "senha": "Senha@123" }
 
 ###
+@tokenIdoso = cole-o-token-aqui
+
+### 3. Perfil
+GET {{api}}/api/v1/usuarios/me
+Authorization: Bearer {{tokenIdoso}}
+
+### 4. Salvar contato de emergência
+PUT {{api}}/api/v1/usuarios/me
+Authorization: Bearer {{tokenIdoso}}
+Content-Type: application/json
+
+{ "nome": "Maria Souza", "bairro": "Penha", "telefone": "(11) 98888-0000", "contatoEmergenciaNome": "João Souza (filho)", "contatoEmergenciaTelefone": "(11) 97777-0000" }
+
+### 5. Refúgios do bairro, com vagas da data
+GET {{api}}/api/v1/refugios?bairro=Penha&data=2026-11-20&pagina=1&tamanho=10
+Authorization: Bearer {{tokenIdoso}}
+
+### 6. Reservar (repita com a mesma Idempotency-Key: devolve a mesma reserva)
+POST {{api}}/api/v1/reservas
+Authorization: Bearer {{tokenIdoso}}
+Idempotency-Key: 6f1c2a9e-0000-4000-8000-000000000001
+Content-Type: application/json
+
+{ "refugioId": 1, "dataReserva": "2026-11-20" }
+
+### 7. Segunda reserva no mesmo dia, outra chave: 409
+POST {{api}}/api/v1/reservas
+Authorization: Bearer {{tokenIdoso}}
+Idempotency-Key: 6f1c2a9e-0000-4000-8000-000000000002
+Content-Type: application/json
+
+{ "refugioId": 2, "dataReserva": "2026-11-20" }
+
+### 8. Minhas reservas
+GET {{api}}/api/v1/reservas/minhas
+Authorization: Bearer {{tokenIdoso}}
+
+### 9. Comprovante (troque o id)
+GET {{api}}/api/v1/reservas/1
+Authorization: Bearer {{tokenIdoso}}
+
+### 10. Cancelar
+DELETE {{api}}/api/v1/reservas/1
+Authorization: Bearer {{tokenIdoso}}
+
+### 11. Login como gestor (copie o token para @tokenGestor)
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{ "email": "gestor@refugio.com", "senha": "Senha@123" }
+
+###
+@tokenGestor = cole-o-token-aqui
+
+### 12. Endereço pelo CEP (ViaCEP)
+GET {{api}}/api/v1/cep/03601000
+Authorization: Bearer {{tokenGestor}}
+
+### 13. Criar refúgio
+POST {{api}}/api/v1/refugios
+Authorization: Bearer {{tokenGestor}}
+Content-Type: application/json
+
+{ "nome": "Biblioteca Municipal da Penha", "tipo": "BIBLIOTECA", "cep": "03601-000", "endereco": "Rua Exemplo, 100", "bairro": "Penha", "capacidade": 20, "abre": "08:00", "fecha": "20:00", "acessivel": true, "ativo": true }
+
+### 14. Validação: capacidade zero → 400 com erro no campo
+POST {{api}}/api/v1/refugios
+Authorization: Bearer {{tokenGestor}}
+Content-Type: application/json
+
+{ "nome": "X", "tipo": "BIBLIOTECA", "cep": "03601000", "endereco": "R", "bairro": "Penha", "capacidade": 0, "abre": "08:00", "fecha": "20:00", "acessivel": true, "ativo": true }
+
+### 15. Editar refúgio (troque o id)
+PUT {{api}}/api/v1/refugios/6
+Authorization: Bearer {{tokenGestor}}
+Content-Type: application/json
+
+{ "nome": "Biblioteca Municipal da Penha", "tipo": "BIBLIOTECA", "cep": "03601-000", "endereco": "Rua Exemplo, 100", "bairro": "Penha", "capacidade": 25, "abre": "08:00", "fecha": "21:00", "acessivel": true, "ativo": false }
+
+### 16. Excluir refúgio (troque o id)
+DELETE {{api}}/api/v1/refugios/6
+Authorization: Bearer {{tokenGestor}}
