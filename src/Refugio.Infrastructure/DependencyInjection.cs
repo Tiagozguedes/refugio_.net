@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Refugio.Application.Interfaces;
 using Refugio.Infrastructure.Data;
+using Refugio.Infrastructure.External.ViaCep;
 using Refugio.Infrastructure.Repositories;
 
 namespace Refugio.Infrastructure;
@@ -24,6 +25,12 @@ public static class DependencyInjection
         services.AddScoped<IRefugioRepository, RefugioRepository>();
         services.AddScoped<IReservaRepository, ReservaRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+
+        services.AddHttpClient<ICepService, ViaCepClient>(http =>
+        {
+            http.BaseAddress = new Uri(configuration["ViaCep:BaseUrl"] ?? "https://viacep.com.br/");
+            http.Timeout = TimeSpan.FromSeconds(5);
+        });
 
         return services;
     }
