@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Refugio.Api.Extensions;
 using Refugio.Api.Filters;
 using Refugio.Application.DTOs.Auth;
 using Refugio.Application.UseCases.Auth;
@@ -10,7 +11,8 @@ public static class AuthEndpoints
     /// <summary>Rotas públicas em /auth (sem /api/v1), como no contrato.</summary>
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
-        var grupo = app.MapGroup("/auth").WithTags("Autenticação").AllowAnonymous();
+        var grupo = app.MapGroup("/auth").WithTags("Autenticação").AllowAnonymous()
+            .RequireRateLimiting(PoliticasDeLimite.Autenticacao);
 
         grupo.MapPost("/registrar", RegistrarUsuario)
             .WithName("Registrar")

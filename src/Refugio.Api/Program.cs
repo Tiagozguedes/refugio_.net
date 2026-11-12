@@ -16,6 +16,7 @@ builder.Services.AddHealthChecks();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddAutenticacaoJwt(builder.Configuration);
+builder.Services.AddLimitesDeRequisicao(builder.Configuration);
 
 var app = builder.Build();
 
@@ -38,8 +39,10 @@ app.UseSwaggerUI(options =>
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+// Depois da autenticação, para o limite contar por usuário do token.
+app.UseRateLimiter();
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").DisableRateLimiting();
 app.MapAuthEndpoints();
 
 var api = app.MapGroup("/api/v1");
