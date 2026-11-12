@@ -45,5 +45,6 @@ app.MapAuthEndpoints();
 var api = app.MapGroup("/api/v1");
 api.MapRefugioEndpoints();
 api.MapCepEndpoints();
+api.MapReservaEndpoints();
 
 app.Run();
