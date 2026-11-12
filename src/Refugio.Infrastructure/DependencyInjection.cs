@@ -16,10 +16,12 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException(
                 "Connection string 'Refugio' não configurada. Use user-secrets ou a variável ConnectionStrings__Refugio.");
 
+        var senhaUsuariosDeTeste = configuration["Seed:SenhaUsuarios"] ?? "Senha@123";
+
         services.AddDbContext<RefugioDbContext>(options => options
             .UseNpgsql(connectionString)
-            .UseSeeding((db, _) => SeedData.Semear((RefugioDbContext)db))
-            .UseAsyncSeeding((db, _, ct) => SeedData.SemearAsync((RefugioDbContext)db, ct)));
+            .UseSeeding((db, _) => SeedData.Semear((RefugioDbContext)db, senhaUsuariosDeTeste))
+            .UseAsyncSeeding((db, _, ct) => SeedData.SemearAsync((RefugioDbContext)db, senhaUsuariosDeTeste, ct)));
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IRefugioRepository, RefugioRepository>();
