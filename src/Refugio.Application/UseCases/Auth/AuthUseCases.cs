@@ -41,8 +41,10 @@ public sealed class Login(IUsuarioRepository usuarios, ISenhaHasher hasher, IGer
     {
         var usuario = await usuarios.ObterPorEmailAsync(Usuario.NormalizarEmail(request.Email!), ct);
 
-        // Mesma resposta para e-mail inexistente e senha errada, para não revelar quais e-mails existem.
-        if (usuario is null || !hasher.Verificar(usuario.SenhaHash, request.Senha!))
+        // Mesma resposta, e no mesmo tempo, para e-mail inexistente e senha errada: sem usuário, a senha é
+        // conferida contra um hash fictício, para o tempo de resposta não revelar quais e-mails existem.
+        var senhaConfere = hasher.Verificar(usuario?.SenhaHash ?? hasher.HashFicticio, request.Senha!);
+        if (usuario is null || !senhaConfere)
             throw new NaoAutenticadoException("Credenciais inválidas", "E-mail ou senha incorretos.");
 
         var (token, expiraEm) = gerador.Gerar(usuario);

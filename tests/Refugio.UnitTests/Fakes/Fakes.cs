@@ -120,8 +120,17 @@ public sealed class UsuarioRepositoryFake : IUsuarioRepository
 /// <summary>"Hash" reversível, só para os testes conferirem que a senha não é gravada pura.</summary>
 public sealed class SenhaHasherFake : ISenhaHasher
 {
+    public List<string> HashesVerificados { get; } = [];
+
+    public string HashFicticio => "hash-ficticio";
+
     public string Gerar(string senha) => $"hash:{senha}";
-    public bool Verificar(string senhaHash, string senha) => senhaHash == $"hash:{senha}";
+
+    public bool Verificar(string senhaHash, string senha)
+    {
+        HashesVerificados.Add(senhaHash);
+        return senhaHash == $"hash:{senha}";
+    }
 }
 
 public sealed class GeradorDeTokenFake(DateTimeOffset expiraEm) : IGeradorDeToken

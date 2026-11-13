@@ -8,6 +8,12 @@ public interface ISenhaHasher
     string Gerar(string senha);
 
     bool Verificar(string senhaHash, string senha);
+
+    /// <summary>
+    /// Hash válido que não pertence a ninguém. O login verifica a senha contra ele quando o e-mail não existe,
+    /// para a resposta levar o mesmo tempo nos dois casos e não revelar quais e-mails estão cadastrados.
+    /// </summary>
+    string HashFicticio { get; }
 }
 
 public interface IGeradorDeToken
