@@ -13,7 +13,7 @@ public interface IRefugioRepository
     Task<Refugio?> ObterParaReservaAsync(long id, CancellationToken ct);
 
     Task<(IReadOnlyList<RefugioComOcupacao> Itens, int Total)> ListarAsync(
-        string? bairro, DateOnly data, int pagina, int tamanho, CancellationToken ct);
+        string? bairro, bool? ativo, DateOnly data, int pagina, int tamanho, CancellationToken ct);
 
     void Adicionar(Refugio refugio);
 

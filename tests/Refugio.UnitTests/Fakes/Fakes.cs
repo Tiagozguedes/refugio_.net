@@ -30,7 +30,7 @@ public sealed class RefugioRepositoryFake : IRefugioRepository
     public Task<Refugio?> ObterParaReservaAsync(long id, CancellationToken ct) => ObterPorIdAsync(id, ct);
 
     public Task<(IReadOnlyList<RefugioComOcupacao> Itens, int Total)> ListarAsync(
-        string? bairro, DateOnly data, int pagina, int tamanho, CancellationToken ct) =>
+        string? bairro, bool? ativo, DateOnly data, int pagina, int tamanho, CancellationToken ct) =>
         throw new NotSupportedException();
 
     public void Adicionar(Refugio refugio) => Refugios.Add(refugio);

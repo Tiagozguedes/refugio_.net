@@ -43,6 +43,12 @@ public class RefugioTests
     }
 
     [Fact]
+    public void Refugio_inativo_nao_tem_vaga_disponivel()
+    {
+        Assert.Equal(0, NovoRefugio(capacidade: 30, ativo: false).VagasDisponiveis(vagasOcupadas: 0));
+    }
+
+    [Fact]
     public void Endereco_completo_junta_endereco_e_bairro()
     {
         Assert.Equal("Rua Exemplo, 100 — Penha", NovoRefugio().EnderecoCompleto);

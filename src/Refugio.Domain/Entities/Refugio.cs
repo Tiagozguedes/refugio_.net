@@ -49,7 +49,8 @@ public class Refugio
         Ativo = ativo;
     }
 
-    public int VagasDisponiveis(int vagasOcupadas) => Math.Max(0, Capacidade - vagasOcupadas);
+    /// <summary>Refúgio inativo não recebe ninguém, então não tem vaga disponível.</summary>
+    public int VagasDisponiveis(int vagasOcupadas) => Ativo ? Math.Max(0, Capacidade - vagasOcupadas) : 0;
 
     /// <summary>
     /// Regras de uma nova reserva neste refúgio. A ordem define qual erro o idoso vê primeiro.
@@ -62,7 +63,7 @@ public class Refugio
             throw new RegraDeNegocioException("Refúgio inativo", "Este refúgio está fechado e não aceita reservas.");
         if (idosoJaTemReservaNoDia)
             throw new ConflitoException("Reserva já existe", $"Você já tem uma reserva para {dataReserva:dd/MM}.");
-        if (VagasDisponiveis(vagasOcupadas) == 0)
+        if (Capacidade - vagasOcupadas <= 0)
             throw new ConflitoException("Sem vaga", $"Este refúgio não tem mais vagas para {dataReserva:dd/MM}.");
     }
 }

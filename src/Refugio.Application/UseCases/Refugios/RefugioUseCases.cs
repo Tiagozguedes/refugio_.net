@@ -21,7 +21,7 @@ public sealed class ListarRefugios(IRefugioRepository refugios, TimeProvider rel
         var tamanho = query.Tamanho ?? ListarRefugiosQuery.TamanhoPadrao;
         var data = query.Data ?? relogio.HojeEmSaoPaulo();
 
-        var (itens, total) = await refugios.ListarAsync(query.Bairro, data, pagina, tamanho, ct);
+        var (itens, total) = await refugios.ListarAsync(query.Bairro, query.Ativo, data, pagina, tamanho, ct);
 
         var respostas = itens.Select(i => RefugioResponse.De(i.Refugio, i.VagasOcupadas)).ToList();
         return PaginaResponse<RefugioResponse>.Criar(respostas, pagina, tamanho, total);

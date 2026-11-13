@@ -105,6 +105,25 @@ public class RefugioEndpointsTests(RefugioApiFactory factory) : ApiTestBase(fact
     }
 
     [Fact]
+    public async Task Filtro_ativo_lista_so_refugios_abertos_e_inativo_aparece_sem_vagas()
+    {
+        var bairro = $"Ativos {Guid.NewGuid():N}";
+        await NovoRefugioAsync(capacidade: 10, bairro: bairro);
+        await NovoRefugioAsync(capacidade: 30, ativo: false, bairro: bairro);
+        var idoso = await LogarAsync(Maria);
+        var bairroUrl = Uri.EscapeDataString(bairro);
+
+        var todos = await LerJsonAsync(await idoso.GetAsync($"/api/v1/refugios?bairro={bairroUrl}"));
+        var abertos = await LerJsonAsync(await idoso.GetAsync($"/api/v1/refugios?bairro={bairroUrl}&ativo=true"));
+
+        Assert.Equal(2, todos.GetProperty("totalItens").GetInt32());
+        var inativo = todos.GetProperty("itens").EnumerateArray().Single(r => !r.GetProperty("ativo").GetBoolean());
+        Assert.Equal(0, inativo.GetProperty("vagasDisponiveis").GetInt32());
+        var aberto = Assert.Single(abertos.GetProperty("itens").EnumerateArray());
+        Assert.True(aberto.GetProperty("ativo").GetBoolean());
+    }
+
+    [Fact]
     public async Task Tamanho_de_pagina_fora_do_limite_da_400()
     {
         var idoso = await LogarAsync(Maria);
