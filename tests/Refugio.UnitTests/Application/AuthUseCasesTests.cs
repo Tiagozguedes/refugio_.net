@@ -78,4 +78,15 @@ public class AuthUseCasesTests
 
         Assert.Equal("E-mail ou senha incorretos.", erro.Message);
     }
+
+    [Fact]
+    public async Task Login_com_email_inexistente_tambem_verifica_senha_para_nao_revelar_o_email_pelo_tempo()
+    {
+        var login = new Login(_usuarios, _hasher, new GeradorDeTokenFake(Agora));
+
+        await Assert.ThrowsAsync<NaoAutenticadoException>(() =>
+            login.ExecutarAsync(new LoginRequest("naoexiste@email.com", "Senha@123"), default));
+
+        Assert.Equal(["hash-ficticio"], _hasher.HashesVerificados);
+    }
 }

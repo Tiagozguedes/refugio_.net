@@ -91,7 +91,15 @@ Swagger em http://localhost:8080/swagger. O Dockerfile fica em [dockerfiles/Dock
 dotnet test
 ```
 
-Os testes de integração sobem a API real contra o Oracle configurado nos user-secrets (ou na variável `ConnectionStrings__Refugio`, no CI). Eles usam tabelas próprias com prefixo `T_RFGTST_`, criadas no início e apagadas no fim, sem tocar nas tabelas do app. O ViaCEP é substituído por um dublê.
+Os testes de integração sobem a API real contra o Oracle configurado nos user-secrets. Cada execução usa tabelas próprias com um prefixo aleatório (`T_RFGTST_XXXX_`), criadas no início e apagadas no fim, sem tocar nas tabelas do app. Por isso duas execuções podem rodar ao mesmo tempo (o CI e alguém do grupo, por exemplo). Sobras de execuções interrompidas são apagadas depois de 2 horas. O ViaCEP é substituído por um dublê.
+
+**No CI (Azure Pipelines):** cadastre a variável secreta `ConnectionStrings__Refugio` com a connection string do Oracle e repasse para o passo de teste:
+
+```yaml
+- script: dotnet test --logger trx --results-directory $(Agent.TempDirectory)
+  env:
+    ConnectionStrings__Refugio: $(ConnectionStrings__Refugio)
+```
 
 ## Usuários de teste
 
@@ -111,7 +119,7 @@ O cadastro pela API (`/auth/registrar`) cria sempre IDOSO. Contas de gestor só 
 |---|---|---|
 | `POST /auth/registrar` | Público | Cria conta de idoso → 201 |
 | `POST /auth/login` | Público | Devolve `token`, `expiraEm` e `usuario` |
-| `GET /api/v1/refugios?bairro=&data=&pagina=&tamanho=` | Logado | Lista paginada com vagas da data |
+| `GET /api/v1/refugios?bairro=&data=&pagina=&tamanho=&ativo=` | Logado | Lista paginada com vagas da data. `ativo=true` traz só os abertos; refúgio inativo aparece com 0 vagas |
 | `GET /api/v1/refugios/{id}?data=` | Logado | Detalhe com vagas da data |
 | `POST /api/v1/refugios` | GESTOR | Cria → 201 com `Location` |
 | `PUT /api/v1/refugios/{id}` | GESTOR | Atualiza → 200 |
@@ -170,7 +178,7 @@ Formatos: datas `yyyy-MM-dd`, horários `HH:mm`, data e hora em ISO 8601 no fuso
 | Status | Quando |
 |---|---|
 | 200 / 201 / 204 | Sucesso |
-| 400 | Validação, com o erro em `errors.<campo>` |
+| 400 | Validação, com o erro em `errors.<campo>`; vale também para JSON malformado e parâmetro de query inválido (ex.: `errors.data`) |
 | 401 | Login inválido, token ausente, inválido ou expirado |
 | 403 | Papel sem permissão, ou reserva de outro idoso |
 | 404 | Refúgio, reserva ou CEP inexistente |
@@ -187,6 +195,8 @@ Formatos: datas `yyyy-MM-dd`, horários `HH:mm`, data e hora em ISO 8601 no fuso
 - **Fuso horário:** "hoje" e `criadoEm` usam o fuso de São Paulo, como combinado com o app.
 - **Rate limit:** login e cadastro contam por IP (contra força bruta); o resto conta por usuário do token. Limites em `appsettings.json` (`RateLimit`).
 - **Segredos:** connection string e chave JWT nunca ficam no repositório (user-secrets, `.env` ou variáveis de ambiente).
+- **Login:** e-mail inexistente e senha errada dão a mesma resposta e levam o mesmo tempo (a senha é conferida contra um hash fictício), para a API não revelar quais e-mails estão cadastrados.
+- **Swagger:** os exemplos de requisição e resposta são os mesmos do contrato combinado com o app.
 
 ## Bibliotecas
 

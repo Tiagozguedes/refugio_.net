@@ -21,9 +21,12 @@ internal sealed class RefugioRepository(RefugioDbContext db) : IRefugioRepositor
     }
 
     public async Task<(IReadOnlyList<RefugioComOcupacao> Itens, int Total)> ListarAsync(
-        string? bairro, DateOnly data, int pagina, int tamanho, CancellationToken ct)
+        string? bairro, bool? ativo, DateOnly data, int pagina, int tamanho, CancellationToken ct)
     {
         var consulta = db.Refugios.AsNoTracking();
+
+        if (ativo is { } somenteAtivos)
+            consulta = consulta.Where(r => r.Ativo == somenteAtivos);
 
         if (!string.IsNullOrWhiteSpace(bairro))
         {
