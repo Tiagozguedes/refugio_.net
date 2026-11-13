@@ -79,6 +79,50 @@ public class RefugioEndpointsTests(RefugioApiFactory factory) : ApiTestBase(fact
         Assert.Equal(2, pagina2.GetProperty("totalPaginas").GetInt32());
     }
 
+    [Theory]
+    [InlineData("/api/v1/refugios?data=15-11-2026", "data")]
+    [InlineData("/api/v1/refugios/1?data=amanha", "data")]
+    [InlineData("/api/v1/refugios?pagina=um", "pagina")]
+    public async Task Parametro_de_query_malformado_da_400_com_erro_no_campo(string rota, string campo)
+    {
+        var idoso = await LogarAsync(Maria);
+
+        var problema = await AssertProblemaAsync(await idoso.GetAsync(rota), HttpStatusCode.BadRequest);
+
+        var erros = problema.GetProperty("errors").GetProperty(campo);
+        Assert.DoesNotContain("Failed", erros[0].GetString());
+    }
+
+    [Fact]
+    public async Task Numero_entre_aspas_no_corpo_da_400_no_campo()
+    {
+        var gestor = await LogarAsync(Gestor);
+        var corpo = new { nome = "X", tipo = "BIBLIOTECA", cep = "03601000", endereco = "R", bairro = "B", capacidade = "20", abre = "08:00", fecha = "20:00", acessivel = true, ativo = true };
+
+        var problema = await AssertProblemaAsync(await gestor.PostAsJsonAsync("/api/v1/refugios", corpo), HttpStatusCode.BadRequest);
+
+        Assert.True(problema.GetProperty("errors").TryGetProperty("capacidade", out _));
+    }
+
+    [Fact]
+    public async Task Filtro_ativo_lista_so_refugios_abertos_e_inativo_aparece_sem_vagas()
+    {
+        var bairro = $"Ativos {Guid.NewGuid():N}";
+        await NovoRefugioAsync(capacidade: 10, bairro: bairro);
+        await NovoRefugioAsync(capacidade: 30, ativo: false, bairro: bairro);
+        var idoso = await LogarAsync(Maria);
+        var bairroUrl = Uri.EscapeDataString(bairro);
+
+        var todos = await LerJsonAsync(await idoso.GetAsync($"/api/v1/refugios?bairro={bairroUrl}"));
+        var abertos = await LerJsonAsync(await idoso.GetAsync($"/api/v1/refugios?bairro={bairroUrl}&ativo=true"));
+
+        Assert.Equal(2, todos.GetProperty("totalItens").GetInt32());
+        var inativo = todos.GetProperty("itens").EnumerateArray().Single(r => !r.GetProperty("ativo").GetBoolean());
+        Assert.Equal(0, inativo.GetProperty("vagasDisponiveis").GetInt32());
+        var aberto = Assert.Single(abertos.GetProperty("itens").EnumerateArray());
+        Assert.True(aberto.GetProperty("ativo").GetBoolean());
+    }
+
     [Fact]
     public async Task Tamanho_de_pagina_fora_do_limite_da_400()
     {

@@ -17,7 +17,9 @@ public static class RefugioEndpoints
         grupo.MapGet("/", Listar)
             .WithName("ListarRefugios")
             .WithSummary("Lista refúgios com filtro por bairro e data, paginada")
-            .WithDescription("Sem `data`, as vagas disponíveis são as de hoje (fuso de São Paulo). `tamanho` vai de 1 a 50.")
+            .WithDescription(
+                "Sem `data`, as vagas disponíveis são as de hoje (fuso de São Paulo). `tamanho` vai de 1 a 50. " +
+                "`ativo=true` lista só os refúgios abertos; sem o filtro vêm todos. Refúgio inativo aparece com 0 vagas.")
             .ComValidacao<ListarRefugiosQuery>();
 
         grupo.MapGet("/{id:long}", Obter)

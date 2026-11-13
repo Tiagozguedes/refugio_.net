@@ -35,8 +35,11 @@ public sealed record RefugioResponse(
         r.VagasDisponiveis(vagasOcupadas), r.Abre, r.Fecha, r.Acessivel, r.Ativo);
 }
 
-/// <summary>Filtros de GET /api/v1/refugios. Sem data, as vagas são as de hoje (São Paulo).</summary>
-public sealed record ListarRefugiosQuery(string? Bairro, DateOnly? Data, int? Pagina, int? Tamanho)
+/// <summary>
+/// Filtros de GET /api/v1/refugios. Sem data, as vagas são as de hoje (São Paulo).
+/// Ativo é opcional: ativo=true lista só os refúgios abertos (tela Início do idoso); sem ele, vêm todos.
+/// </summary>
+public sealed record ListarRefugiosQuery(string? Bairro, DateOnly? Data, int? Pagina, int? Tamanho, bool? Ativo = null)
 {
     public const int TamanhoPadrao = 10;
     public const int TamanhoMaximo = 50;

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -14,9 +15,9 @@ using Refugio.Infrastructure.Data;
 namespace Refugio.IntegrationTests.Infra;
 
 /// <summary>
-/// Sobe a API real contra o mesmo Oracle da aplicação, mas com tabelas próprias (prefixo T_RFGTST_),
-/// criadas no início e apagadas no fim da execução. As tabelas do app (T_RFG_*) e as demais do schema
-/// não são tocadas. O ViaCEP é trocado por um dublê para os testes não dependerem da internet.
+/// Sobe a API real contra o mesmo Oracle da aplicação, mas com tabelas próprias desta execução
+/// (prefixo T_RFGTST_XXXX_), criadas no início e apagadas no fim. As tabelas do app (T_RFG_*) e as demais
+/// do schema não são tocadas. O ViaCEP é trocado por um dublê para os testes não dependerem da internet.
 ///
 /// A connection string vem dos user-secrets da API (desenvolvimento) ou da variável
 /// ConnectionStrings__Refugio (CI).
@@ -24,7 +25,17 @@ namespace Refugio.IntegrationTests.Infra;
 public sealed class RefugioApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string SenhaUsuarios = "Senha@123";
-    private const string PrefixoDosTestes = "T_RFGTST_";
+    private const string RaizDoPrefixo = "T_RFGTST_";
+
+    /// <summary>
+    /// Prefixo único desta execução (ex.: T_RFGTST_A1B2_). Duas execuções ao mesmo tempo, como o CI
+    /// e alguém do grupo, usam tabelas diferentes e uma nunca apaga as da outra.
+    /// </summary>
+    private static readonly string PrefixoDosTestes =
+        $"{RaizDoPrefixo}{Convert.ToHexString(RandomNumberGenerator.GetBytes(2))}_";
+
+    /// <summary>Sobras de execuções interrompidas só são apagadas depois deste tempo.</summary>
+    private const int HorasParaConsiderarAbandonada = 2;
 
     private readonly string _connectionString = LerConnectionString();
     private readonly ConfiguracaoBanco _banco = new(PrefixoDosTestes);
@@ -48,7 +59,7 @@ public sealed class RefugioApiFactory : WebApplicationFactory<Program>, IAsyncLi
     public async Task InitializeAsync()
     {
         await using var db = NovoContexto();
-        await ApagarTabelasDeTesteAsync(db); // sobras de uma execução interrompida
+        await ApagarTabelasAbandonadasAsync(db);
         await db.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
         await SeedData.SemearAsync(db, SenhaUsuarios, CancellationToken.None);
     }
@@ -57,25 +68,36 @@ public sealed class RefugioApiFactory : WebApplicationFactory<Program>, IAsyncLi
     {
         await base.DisposeAsync();
         await using var db = NovoContexto();
-        await ApagarTabelasDeTesteAsync(db);
+        await ApagarAsync(db, await TabelasAsync(db, $"TABLE_NAME LIKE '{ParaLike(PrefixoDosTestes)}%' ESCAPE '\\'"));
     }
 
     private RefugioDbContext NovoContexto() =>
         new(new DbContextOptionsBuilder<RefugioDbContext>().UsarOracle(_connectionString, _banco).Options, _banco);
 
-    /// <summary>Apaga só tabelas com o prefixo exato dos testes.</summary>
-    private static async Task ApagarTabelasDeTesteAsync(RefugioDbContext db)
+    /// <summary>Tabelas de teste de execuções que morreram no meio (criadas há mais de 2 horas).</summary>
+    private static async Task ApagarTabelasAbandonadasAsync(RefugioDbContext db) =>
+        await ApagarAsync(db, await TabelasAsync(db,
+            $"TABLE_NAME LIKE '{ParaLike(RaizDoPrefixo)}%' ESCAPE '\\' AND TABLE_NAME IN " +
+            $"(SELECT OBJECT_NAME FROM USER_OBJECTS WHERE OBJECT_TYPE = 'TABLE' AND CREATED < SYSDATE - {HorasParaConsiderarAbandonada}/24)"));
+
+    private static async Task<List<string>> TabelasAsync(RefugioDbContext db, string filtro)
     {
-        if (db.Banco.PrefixoTabelas != PrefixoDosTestes)
-            throw new InvalidOperationException("Proteção: só tabelas de teste podem ser apagadas.");
-
-        var tabelas = await db.Database
-            .SqlQueryRaw<string>("SELECT TABLE_NAME AS \"Value\" FROM USER_TABLES WHERE TABLE_NAME LIKE 'T\\_RFGTST\\_%' ESCAPE '\\'")
-            .ToListAsync();
-
-        foreach (var tabela in tabelas.Where(t => t.StartsWith(PrefixoDosTestes, StringComparison.Ordinal)))
-            await db.Database.ExecuteSqlRawAsync($"DROP TABLE \"{tabela}\" CASCADE CONSTRAINTS PURGE");
+        // O filtro só usa constantes deste arquivo e o prefixo gerado aqui (letras, dígitos e "_").
+        var sql = $"SELECT TABLE_NAME AS \"Value\" FROM USER_TABLES WHERE {filtro}";
+        return await db.Database.SqlQueryRaw<string>(sql).ToListAsync();
     }
+
+    /// <summary>Proteção extra: nunca apaga tabela que não comece com o prefixo de teste.</summary>
+    private static async Task ApagarAsync(RefugioDbContext db, IEnumerable<string> tabelas)
+    {
+        foreach (var tabela in tabelas.Where(t => t.StartsWith(RaizDoPrefixo, StringComparison.Ordinal)))
+        {
+            var sql = $"DROP TABLE \"{tabela}\" CASCADE CONSTRAINTS PURGE";
+            await db.Database.ExecuteSqlRawAsync(sql);
+        }
+    }
+
+    private static string ParaLike(string prefixo) => prefixo.Replace("_", "\\_");
 
     private static string LerConnectionString() =>
         new ConfigurationBuilder()

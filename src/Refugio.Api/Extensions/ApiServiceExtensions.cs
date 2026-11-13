@@ -19,6 +19,8 @@ public static class ApiServiceExtensions
             options.SerializerOptions.Converters.Add(
                 new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseUpper, allowIntegerValues: false));
             options.SerializerOptions.Converters.Add(new HoraJsonConverter());
+            // Números só como números ("capacidade": 20), como no contrato; "20" entre aspas vira 400.
+            options.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
         });
 
         // Corpo ou parâmetro inválido vira exceção e passa pelo mesmo tratamento de erros (ProblemDetails).
@@ -31,6 +33,9 @@ public static class ApiServiceExtensions
     {
         services.AddOpenApi(options =>
         {
+            options.AddSchemaTransformer(ContratoOpenApi.AjustarSchema);
+            options.AddDocumentTransformer(ContratoOpenApi.AjustarDocumento);
+
             options.AddDocumentTransformer((documento, _, _) =>
             {
                 documento.Info = new OpenApiInfo

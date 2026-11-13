@@ -8,6 +8,9 @@ internal sealed class SenhaHasher : ISenhaHasher
 {
     private static readonly PasswordHasher<object> Hasher = new();
     private static readonly object SemUsuario = new();
+    private static readonly Lazy<string> Ficticio = new(() => Hasher.HashPassword(SemUsuario, Guid.NewGuid().ToString()));
+
+    public string HashFicticio => Ficticio.Value;
 
     public string Gerar(string senha) => Hasher.HashPassword(SemUsuario, senha);
 
