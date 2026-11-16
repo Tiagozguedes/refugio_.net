@@ -1,10 +1,19 @@
 ﻿-- =====================================================================
--- Refúgio API - DDL dos objetos de banco (Oracle 19c)
--- Gerado a partir das migrações do EF Core:
---   dotnet tool run dotnet-ef migrations script --project src/Refugio.Infrastructure --startup-project src/Refugio.Infrastructure -o scripts/script-bd.sql
--- Tabelas com prefixo T_RFG_ para não colidir com outras tabelas do schema.
--- Não é preciso rodar à mão: a API aplica as migrações ao iniciar (Database:AplicarMigracoesAoIniciar).
--- Os dados de exemplo (usuários de teste e refúgios) são gravados pela API na primeira inicialização.
+-- Refúgio API - script do banco (Oracle 19c)
+--
+-- Parte 1: DDL das tabelas T_RFG_* (gerado pelas migrações do EF Core).
+-- Parte 2: dados iniciais: o GESTOR (ADM), dois idosos de teste e cinco refúgios.
+--
+-- Como rodar: no SQL Developer, conectado ao schema do grupo, abra este arquivo
+-- e execute como script (F5). Se as tabelas já existirem (a API cria ao subir),
+-- rode só a Parte 2: ela não duplica nada se for executada de novo.
+--
+-- O cadastro pela API (POST /auth/registrar) cria sempre IDOSO; o GESTOR só
+-- existe por este script (ou pelo seed da API, que grava os mesmos dados).
+-- =====================================================================
+
+-- =====================================================================
+-- PARTE 1 - TABELAS
 -- =====================================================================
 DECLARE
 V_COUNT INTEGER;
@@ -104,5 +113,71 @@ CREATE UNIQUE INDEX "UX_T_RFG_USUARIO_EMAIL" ON "T_RFG_USUARIO" ("EMAIL")
 INSERT INTO "T_RFG_EF_MIGRACOES" ("MigrationId", "ProductVersion")
 VALUES (N'20261112233609_InicialCriacaoOracle', N'10.0.15')
 /
+
+-- =====================================================================
+-- PARTE 2 - DADOS INICIAIS (pode rodar mais de uma vez: só insere o que falta)
+--
+-- Usuários de teste, todos com a senha Senha@123:
+--   gestor@refugio.com  GESTOR (ADM: cadastra, edita e exclui refúgios)
+--   maria@email.com     IDOSO (com bairro e contato de emergência)
+--   jose@email.com      IDOSO
+-- SENHA_HASH é o hash PBKDF2 do ASP.NET Core Identity para "Senha@123";
+-- a senha nunca é gravada em texto puro.
+-- =====================================================================
+
+INSERT INTO "T_RFG_USUARIO" ("NOME", "EMAIL", "SENHA_HASH", "PAPEL", "CRIADO_EM")
+SELECT N'Gestora Refúgio', N'gestor@refugio.com',
+       N'AQAAAAIAAYagAAAAEJWoSE7CxHY9E9IT4BaCOr481x9z1ONs1Kp3nY9rCsl0tQmrpA9ujFZ7+Xoa8BSMyw==',
+       N'GESTOR', SYSTIMESTAMP AT TIME ZONE 'UTC'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM "T_RFG_USUARIO" WHERE "EMAIL" = N'gestor@refugio.com');
+
+INSERT INTO "T_RFG_USUARIO" ("NOME", "EMAIL", "SENHA_HASH", "PAPEL", "BAIRRO", "TELEFONE",
+                             "CONTATO_EMERGENCIA_NOME", "CONTATO_EMERGENCIA_TELEFONE", "CRIADO_EM")
+SELECT N'Maria Souza', N'maria@email.com',
+       N'AQAAAAIAAYagAAAAEJWoSE7CxHY9E9IT4BaCOr481x9z1ONs1Kp3nY9rCsl0tQmrpA9ujFZ7+Xoa8BSMyw==',
+       N'IDOSO', N'Penha', N'(11) 98888-0000', N'João Souza (filho)', N'(11) 97777-0000',
+       SYSTIMESTAMP AT TIME ZONE 'UTC'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM "T_RFG_USUARIO" WHERE "EMAIL" = N'maria@email.com');
+
+INSERT INTO "T_RFG_USUARIO" ("NOME", "EMAIL", "SENHA_HASH", "PAPEL", "CRIADO_EM")
+SELECT N'José Lima', N'jose@email.com',
+       N'AQAAAAIAAYagAAAAEJWoSE7CxHY9E9IT4BaCOr481x9z1ONs1Kp3nY9rCsl0tQmrpA9ujFZ7+Xoa8BSMyw==',
+       N'IDOSO', SYSTIMESTAMP AT TIME ZONE 'UTC'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM "T_RFG_USUARIO" WHERE "EMAIL" = N'jose@email.com');
+
+-- Refúgios de exemplo (endereços fictícios). ACESSIVEL e ATIVO: 1 = sim, 0 = não.
+INSERT INTO "T_RFG_REFUGIO" ("NOME", "TIPO", "CEP", "ENDERECO", "BAIRRO", "CAPACIDADE", "ABRE", "FECHA", "ACESSIVEL", "ATIVO")
+SELECT N'Biblioteca Municipal da Penha', N'BIBLIOTECA', N'03601-000', N'Rua Exemplo, 100', N'Penha', 20, '08:00', '20:00', 1, 1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM "T_RFG_REFUGIO" WHERE "NOME" = N'Biblioteca Municipal da Penha');
+
+INSERT INTO "T_RFG_REFUGIO" ("NOME", "TIPO", "CEP", "ENDERECO", "BAIRRO", "CAPACIDADE", "ABRE", "FECHA", "ACESSIVEL", "ATIVO")
+SELECT N'CEU Penha', N'CEU', N'03602-000', N'Avenida Modelo, 2500', N'Penha', 40, '07:00', '22:00', 1, 1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM "T_RFG_REFUGIO" WHERE "NOME" = N'CEU Penha');
+
+INSERT INTO "T_RFG_REFUGIO" ("NOME", "TIPO", "CEP", "ENDERECO", "BAIRRO", "CAPACIDADE", "ABRE", "FECHA", "ACESSIVEL", "ATIVO")
+SELECT N'UBS Vila Matilde', N'UBS', N'03510-000', N'Rua Fictícia, 45', N'Vila Matilde', 10, '07:00', '19:00', 1, 1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM "T_RFG_REFUGIO" WHERE "NOME" = N'UBS Vila Matilde');
+
+INSERT INTO "T_RFG_REFUGIO" ("NOME", "TIPO", "CEP", "ENDERECO", "BAIRRO", "CAPACIDADE", "ABRE", "FECHA", "ACESSIVEL", "ATIVO")
+SELECT N'Centro Comunitário Itaquera', N'CENTRO_COMUNITARIO', N'08210-000', N'Rua do Bairro, 300', N'Itaquera', 25, '09:00', '18:00', 0, 1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM "T_RFG_REFUGIO" WHERE "NOME" = N'Centro Comunitário Itaquera');
+
+INSERT INTO "T_RFG_REFUGIO" ("NOME", "TIPO", "CEP", "ENDERECO", "BAIRRO", "CAPACIDADE", "ABRE", "FECHA", "ACESSIVEL", "ATIVO")
+SELECT N'Escola Estadual Tatuapé', N'ESCOLA', N'03310-000', N'Rua Escola, 12', N'Tatuapé', 30, '08:00', '17:00', 1, 0
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM "T_RFG_REFUGIO" WHERE "NOME" = N'Escola Estadual Tatuapé');
+
+COMMIT;
+
+-- Conferência
+SELECT "ID", "NOME", "EMAIL", "PAPEL" FROM "T_RFG_USUARIO" ORDER BY "ID";
+SELECT "ID", "NOME", "BAIRRO", "CAPACIDADE", "ATIVO" FROM "T_RFG_REFUGIO" ORDER BY "ID";
 
 
