@@ -57,6 +57,8 @@ dotnet test                               # testes unitários e de integração
 
 Na primeira execução, a API cria as tabelas e os usuários de teste (senha `Senha@123`): `gestor@refugio.com` (GESTOR), `maria@email.com` e `jose@email.com` (IDOSO).
 
+**Só o banco:** [scripts/script-bd.sql](scripts/script-bd.sql) cria as tabelas e os mesmos dados iniciais, inclusive o gestor. O cadastro pela API cria apenas idosos, então o gestor só existe por esse script ou pelo seed da API. Rode no SQL Developer com F5; a parte de dados pode ser executada de novo sem duplicar.
+
 ## Fluxo de usuário (Postman)
 
 No Postman, crie as variáveis `baseUrl` (`https://refugio-api-gs.eastus.cloudapp.azure.com` ou `http://localhost:5159`), `tokenIdoso` e `tokenGestor`. Cada bloco abaixo pode ser colado em **Import → Raw text**. Troque as datas por uma data futura.
