@@ -1,0 +1,12 @@
+#cloud-config
+# Prepara a VM Ubuntu para rodar a API em contêiner: Docker + plugin compose, iniciando com o sistema.
+package_update: true
+packages:
+  - ca-certificates
+  - curl
+runcmd:
+  - curl -fsSL https://get.docker.com | sh
+  - systemctl enable --now docker
+  - usermod -aG docker azureuser
+  - mkdir -p /opt/refugio
+  - chown azureuser:azureuser /opt/refugio
