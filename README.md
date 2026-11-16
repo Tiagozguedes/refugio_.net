@@ -1,250 +1,170 @@
 # Refúgio API
 
-Backend em .NET 10 do **Refúgio**, solução CitizenTech da Global Solution 2026/2 (FIAP).
-
-## O problema
-
-Ondas de calor são perigosas para idosos: insolação e desidratação chegam rápido, e muitos moram em casas sem ventilação adequada. As cidades já têm lugares frescos e públicos (bibliotecas, CEUs, UBSs, centros comunitários) que podem funcionar como **refúgios climáticos**, mas o idoso não sabe onde fica o mais próximo nem se ainda há vaga.
-
-O Refúgio resolve isso: o **idoso** encontra um refúgio aberto no bairro, reserva uma vaga e mostra o comprovante na porta; o **gestor** cadastra e mantém os refúgios. Esta API é a mesma consumida pelo app Mobile.
-
-**ODS atendidos:** 3 (Saúde e bem-estar), 11 (Cidades e comunidades sustentáveis) e 13 (Ação contra a mudança global do clima).
-
-## Requisitos da disciplina e onde estão
-
-| Requisito (Advanced Business Development with .NET) | Onde |
-|---|---|
-| Minimal API RESTful, validações e códigos HTTP | `src/Refugio.Api/Endpoints`, validadores em `src/Refugio.Application/Validators`, erros em `Middlewares/TratamentoDeErrosMiddleware.cs` |
-| OpenAPI + Swagger | `/swagger` e `/openapi/v1.json`, com esquema Bearer e respostas 400/401/403/404/409/422/429 documentadas |
-| Requisições repetidas (idempotência) | Header `Idempotency-Key` no `POST /api/v1/reservas` (`UseCases/Reservas`) |
-| Rate limiting com 429 | `Extensions/RateLimitExtensions.cs`: limite global, de `/auth` e de reservas, com `Retry-After` |
-| JWT, controle de acesso e HealthChecks | `Infrastructure/Auth` (papéis IDOSO e GESTOR) e `/health` (API, banco e ViaCEP) |
-| Testes unitários e de integração com xUnit | `tests/Refugio.UnitTests` (regras de negócio) e `tests/Refugio.IntegrationTests` (endpoints contra o Oracle) |
-
-## Arquitetura
-
-```mermaid
-flowchart LR
-    App["App Mobile<br/>(React Native)"] -->|HTTPS + JWT| Api
-
-    subgraph Api["Refúgio API (.NET 10)"]
-        direction TB
-        E["Api<br/>Endpoints, filtros, middlewares"] --> A["Application<br/>casos de uso, DTOs, validadores"]
-        A --> D["Domain<br/>entidades e regras"]
-        I["Infrastructure<br/>EF Core, JWT, ViaCEP"] --> A
-        E --> I
-    end
-
-    I -->|EF Core| Oracle[("Oracle 19c<br/>T_RFG_*")]
-    I -->|HTTP| ViaCep["ViaCEP"]
-```
-
-| Camada | Responsabilidade |
-|---|---|
-| `Refugio.Domain` | Entidades `Refugio`, `Reserva` e `Usuario` e as regras de negócio (vagas, refúgio inativo, uma reserva por dia, cancelamento). Não depende de nada. |
-| `Refugio.Application` | Casos de uso (`CriarReserva`, `ListarRefugios`...), DTOs no formato do contrato, validadores FluentValidation e as interfaces que a infraestrutura implementa. |
-| `Refugio.Infrastructure` | EF Core com Oracle, repositórios, JWT e hash de senha, cliente do ViaCEP e health checks. |
-| `Refugio.Api` | Minimal APIs, tratamento de erros em ProblemDetails, rate limiting, OpenAPI e composição em `Program.cs`. |
-
-### Banco de dados
-
-Oracle 19c da FIAP. O schema é compartilhado com outros trabalhos, então as tabelas do Refúgio têm prefixo próprio:
-
-| Tabela | Conteúdo |
-|---|---|
-| `T_RFG_USUARIO` | Idosos e gestores, com senha em hash (PBKDF2), bairro, telefone e contato de emergência |
-| `T_RFG_REFUGIO` | Refúgios: tipo, CEP, endereço, bairro, capacidade, horário, acessibilidade e se está ativo |
-| `T_RFG_RESERVA` | Reserva de um idoso em um refúgio para uma data, com status e a `Idempotency-Key` |
-| `T_RFG_EF_MIGRACOES` | Histórico das migrações do EF Core |
-
-O DDL está em [scripts/script-bd.sql](scripts/script-bd.sql). A API aplica as migrações ao iniciar.
-
-## Como rodar
-
-**Pré-requisitos:** .NET SDK 10 e acesso ao Oracle (usuário e senha da FIAP).
-
-### Com `dotnet run` (desenvolvimento)
-
-As credenciais ficam nos user-secrets, fora do repositório:
-
-```bash
-dotnet user-secrets set "ConnectionStrings:Refugio" "User Id=SEU_RM;Password=SUA_SENHA;Data Source=oracle.fiap.com.br:1521/ORCL" --project src/Refugio.Api
-dotnet user-secrets set "Jwt:Chave" "$(openssl rand -base64 48)" --project src/Refugio.Api
-
-dotnet run --project src/Refugio.Api
-```
-
-Swagger em http://localhost:5159/swagger. Na primeira execução, a API cria as tabelas `T_RFG_*` e grava os dados de exemplo.
-
-### Com Docker
-
-```bash
-cp .env.example .env     # preencha ORACLE_USUARIO, ORACLE_SENHA e JWT_CHAVE
-docker compose up -d --build
-```
-
-Swagger em http://localhost:8080/swagger. O Dockerfile fica em [dockerfiles/Dockerfile](dockerfiles/Dockerfile).
-
-### Testes
-
-```bash
-dotnet test
-```
-
-Os testes de integração sobem a API real contra o Oracle configurado nos user-secrets. Cada execução usa tabelas próprias com um prefixo aleatório (`T_RFGTST_XXXX_`), criadas no início e apagadas no fim, sem tocar nas tabelas do app. Por isso duas execuções podem rodar ao mesmo tempo (o CI e alguém do grupo, por exemplo). Sobras de execuções interrompidas são apagadas depois de 2 horas. O ViaCEP é substituído por um dublê.
-
-**No CI (Azure Pipelines):** cadastre a variável secreta `ConnectionStrings__Refugio` com a connection string do Oracle e repasse para o passo de teste:
-
-```yaml
-- script: dotnet test --logger trx --results-directory $(Agent.TempDirectory)
-  env:
-    ConnectionStrings__Refugio: $(ConnectionStrings__Refugio)
-```
-
-## Deploy no Azure (VM)
-
-A API roda numa VM Linux no Azure, atrás do Caddy, que emite e renova o certificado HTTPS da Let's Encrypt. HTTPS é obrigatório para o app: o Android bloqueia HTTP sem TLS em builds de release.
-
-| | |
-|---|---|
-| URL da API | **https://refugio-api-gs.eastus.cloudapp.azure.com** |
-| Swagger | https://refugio-api-gs.eastus.cloudapp.azure.com/swagger |
-| Para o app | `EXPO_PUBLIC_API_URL=https://refugio-api-gs.eastus.cloudapp.azure.com` |
-| Recursos | grupo `rg-refugio-api` (eastus): VM `vm-refugio-api` (Ubuntu 24.04, Standard_D2as_v4), IP estático, NSG |
-| Rede | 80/443 abertas; SSH só para o IP de quem provisionou; a porta 8080 da API não é exposta |
-
-**A VM fica desligada quando não está em uso** (para economizar crédito). Para usar ou apresentar:
-
-```bash
-az vm start -g rg-refugio-api -n vm-refugio-api       # religa; a API sobe sozinha em ~1 minuto
-bash scripts/validar-endpoints.sh                      # confere todos os endpoints (51 verificações)
-az vm deallocate -g rg-refugio-api -n vm-refugio-api  # desliga de novo
-```
-
-Desligada (`deallocate`), não há cobrança de computação; o IP e o domínio continuam reservados. O disco e o IP estático custam alguns dólares por mês.
-
-Para recriar tudo do zero: [scripts/provisionar-vm.ps1](scripts/provisionar-vm.ps1) (Azure CLI). Ele lê as credenciais do `.env` local, gera uma chave JWT nova para a VM e sobe API + Caddy com [scripts/vm/docker-compose.vm.yml](scripts/vm/docker-compose.vm.yml).
-
-## Usuários de teste
-
-Criados pelo seed na primeira execução. A senha vem de `Seed:SenhaUsuarios` (padrão `Senha@123`).
-
-| E-mail | Papel |
-|---|---|
-| `gestor@refugio.com` | GESTOR |
-| `maria@email.com` | IDOSO (com bairro e contato de emergência preenchidos) |
-| `jose@email.com` | IDOSO |
-
-O cadastro pela API (`/auth/registrar`) cria sempre IDOSO. Contas de gestor só vêm do seed.
-
-## Endpoints
-
-| Método e rota | Quem | O que faz |
-|---|---|---|
-| `POST /auth/registrar` | Público | Cria conta de idoso → 201 |
-| `POST /auth/login` | Público | Devolve `token`, `expiraEm` e `usuario` |
-| `GET /api/v1/refugios?bairro=&data=&pagina=&tamanho=&ativo=` | Logado | Lista paginada com vagas da data. `ativo=true` traz só os abertos; refúgio inativo aparece com 0 vagas |
-| `GET /api/v1/refugios/{id}?data=` | Logado | Detalhe com vagas da data |
-| `POST /api/v1/refugios` | GESTOR | Cria → 201 com `Location` |
-| `PUT /api/v1/refugios/{id}` | GESTOR | Atualiza → 200 |
-| `DELETE /api/v1/refugios/{id}` | GESTOR | Exclui → 204; 409 se houver reservas ativas futuras |
-| `GET /api/v1/cep/{cep}` | GESTOR | Endereço pelo ViaCEP → 200, 404 ou 400 |
-| `POST /api/v1/reservas` | IDOSO | Reserva (exige `Idempotency-Key`) → 201 |
-| `GET /api/v1/reservas/minhas` | IDOSO | Reservas ativas de hoje em diante, da mais próxima à mais distante |
-| `GET /api/v1/reservas/{id}` | IDOSO | Comprovante; 403 se for de outro idoso |
-| `DELETE /api/v1/reservas/{id}` | IDOSO | Cancela → 204 |
-| `GET /api/v1/usuarios/me` | Logado | Perfil |
-| `PUT /api/v1/usuarios/me` | Logado | Atualiza nome, bairro, telefone e contato de emergência |
-| `GET /health` · `GET /health/live` | Público | Saúde da API, do banco e do ViaCEP · só o processo |
-
-O roteiro completo com os corpos JSON está em [src/Refugio.Api/Refugio.Api.http](src/Refugio.Api/Refugio.Api.http).
-
-### Exemplos do contrato
-
-`POST /auth/login` → 200
-
-```json
-{
-  "token": "eyJhbGciOi...",
-  "expiraEm": "2026-11-15T15:30:00-03:00",
-  "usuario": { "id": 2, "nome": "Maria Souza", "email": "maria@email.com", "papel": "IDOSO" }
-}
-```
-
-`POST /api/v1/reservas` com `Idempotency-Key: 6f1c2a9e-...` → 201
-
-```json
-// requisição
-{ "refugioId": 1, "dataReserva": "2026-11-15" }
-
-// resposta
-{
-  "id": 41,
-  "refugioId": 1,
-  "refugioNome": "Biblioteca Municipal da Penha",
-  "refugioEndereco": "Rua Exemplo, 100 — Penha",
-  "dataReserva": "2026-11-15",
-  "status": "ATIVA",
-  "criadoEm": "2026-11-14T10:02:11-03:00"
-}
-```
-
-Erro (sempre ProblemDetails):
-
-```json
-{ "title": "Sem vaga", "status": 409, "detail": "Este refúgio não tem mais vagas para 15/11." }
-```
-
-Formatos: datas `yyyy-MM-dd`, horários `HH:mm`, data e hora em ISO 8601 no fuso de São Paulo, enums em maiúsculas (`BIBLIOTECA`, `CENTRO_COMUNITARIO`, `ATIVA`).
-
-### Códigos de status
-
-| Status | Quando |
-|---|---|
-| 200 / 201 / 204 | Sucesso |
-| 400 | Validação, com o erro em `errors.<campo>`; vale também para JSON malformado e parâmetro de query inválido (ex.: `errors.data`) |
-| 401 | Login inválido, token ausente, inválido ou expirado |
-| 403 | Papel sem permissão, ou reserva de outro idoso |
-| 404 | Refúgio, reserva ou CEP inexistente |
-| 409 | Sem vaga, já tem reserva no dia, e-mail já cadastrado, refúgio com reservas na exclusão |
-| 422 | Refúgio inativo, `Idempotency-Key` reutilizada com outro corpo, cancelamento de reserva passada |
-| 429 | Limite de requisições; o header `Retry-After` diz em quantos segundos tentar |
-| 503 | ViaCEP fora do ar |
-
-## Decisões de projeto
-
-- **Idempotência:** a chave enviada pelo app fica na própria reserva, com índice único por idoso. Repetir a mesma chave com o mesmo corpo devolve a reserva original (com o header `Idempotent-Replayed: true`); com outro refúgio ou data, devolve 422.
-- **Concorrência:** criar uma reserva bloqueia a linha do idoso e a do refúgio (`SELECT ... FOR UPDATE`), sempre nessa ordem para não haver deadlock. Assim, dois pedidos simultâneos não passam da capacidade nem criam duas reservas do mesmo idoso no mesmo dia. Os testes de integração cobrem os dois casos.
-- **Excluir refúgio** com reservas ativas de hoje em diante devolve 409: o gestor deve desativar (`ativo: false`) em vez de excluir.
-- **Fuso horário:** "hoje" e `criadoEm` usam o fuso de São Paulo, como combinado com o app.
-- **Rate limit:** login e cadastro contam por IP (contra força bruta); o resto conta por usuário do token. Limites em `appsettings.json` (`RateLimit`).
-- **Segredos:** connection string e chave JWT nunca ficam no repositório (user-secrets, `.env` ou variáveis de ambiente).
-- **Login:** e-mail inexistente e senha errada dão a mesma resposta e levam o mesmo tempo (a senha é conferida contra um hash fictício), para a API não revelar quais e-mails estão cadastrados.
-- **Swagger:** os exemplos de requisição e resposta são os mesmos do contrato combinado com o app.
-
-## Bibliotecas
-
-| Biblioteca | Por quê |
-|---|---|
-| `Oracle.EntityFrameworkCore` | EF Core com o Oracle da FIAP (exigência: EF Core ou Dapper) |
-| `Microsoft.AspNetCore.Authentication.JwtBearer` | Validação do JWT |
-| `Microsoft.AspNetCore.OpenApi` + `Swashbuckle.AspNetCore.SwaggerUI` | Documento OpenAPI nativo do .NET e a interface do Swagger |
-| `FluentValidation` | Validação dos DTOs com mensagens por campo |
-| `Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore` | Health check do banco |
-| `xunit`, `Microsoft.AspNetCore.Mvc.Testing` | Testes unitários e de integração |
-
-## Fluxo de Git
-
-- `main` recebe só versões fechadas, com tag: `v0.1.0` (estrutura), `v0.2.0` (base), `v0.3.0` (funcionalidades), `v0.4.0` (proteção), `v1.0.0` (entrega).
-- `develop` integra as atividades. Cada atividade é uma branch `feature/AT-XX-...` com merge `--no-ff`.
-- Commits no padrão `tipo(escopo): descrição [AT-XX]`, por exemplo `feat(reserva): ... [AT-07]`.
-
 ## Integrantes
 
 | Nome | RM |
 |---|---|
-| _preencher_ | _preencher_ |
+| Anna Clara Russo Luca | 561928 |
+| Gabriel Duarte Maciel | 565754 |
+| Tiago Guedes da Costa | 564731 |
+| Gustavo Tavares da Silva | 562827 |
 
-## Declaração de uso de IA
+## Resumo
 
-Este backend foi desenvolvido com apoio do **Claude Code (Anthropic)**, usado para gerar código, testes e documentação a partir do plano do grupo e do contrato combinado com o time Mobile. Todo o código foi revisado e testado pelo grupo antes da entrega. _(O grupo deve completar: quem revisou o quê e quais partes foram alteradas manualmente.)_
+O **Refúgio** ajuda idosos a enfrentar ondas de calor. Prédios públicos frescos (bibliotecas, CEUs, UBSs, centros comunitários) viram **refúgios climáticos**: o idoso encontra um refúgio aberto no bairro, reserva uma vaga e mostra o comprovante na porta. O gestor cadastra e mantém os refúgios. ODS 3, 11 e 13.
+
+## Papel desta API
+
+É o backend da solução e a única API que o app Mobile consome. Ela:
+
+- autentica idosos e gestores (JWT) e controla o acesso por papel;
+- mantém os refúgios (CRUD do gestor) e preenche o endereço pelo CEP (ViaCEP);
+- controla as reservas: vagas por dia, uma reserva por idoso por dia, cancelamento e comprovante;
+- evita reserva duplicada (`Idempotency-Key`), limita requisições (429) e expõe a saúde da API, do banco e do ViaCEP.
+
+## Tecnologias
+
+| | |
+|---|---|
+| API | .NET 10, ASP.NET Core Minimal APIs |
+| Banco | Oracle 19c (FIAP) com EF Core 10 e migrações; tabelas `T_RFG_*` |
+| Segurança | JWT Bearer (papéis IDOSO e GESTOR), senha com PBKDF2, rate limiting nativo |
+| Validação e erros | FluentValidation; todo erro em ProblemDetails |
+| Documentação | OpenAPI + Swagger UI (`/swagger`) |
+| Monitoramento | Health Checks (`/health`: API, banco e ViaCEP) |
+| Testes | xUnit: unitários (regras de negócio) e de integração (WebApplicationFactory + Oracle) |
+| Deploy | Docker, Caddy (HTTPS automático) e VM Linux no Azure |
+
+Camadas: `Domain` (regras) ← `Application` (casos de uso, DTOs, validação) ← `Infrastructure` (EF Core, JWT, ViaCEP) ← `Api` (endpoints).
+
+## Como fazer funcionar
+
+**Na nuvem (Azure):** a API fica em **https://refugio-api-gs.eastus.cloudapp.azure.com**. A VM fica desligada quando não está em uso:
+
+```bash
+az vm start -g rg-refugio-api -n vm-refugio-api        # liga; a API sobe sozinha em ~1 minuto
+az vm deallocate -g rg-refugio-api -n vm-refugio-api   # desliga
+```
+
+**Local:** precisa do .NET SDK 10 e de acesso ao Oracle.
+
+```bash
+dotnet user-secrets set "ConnectionStrings:Refugio" "User Id=SEU_RM;Password=SUA_SENHA;Data Source=oracle.fiap.com.br:1521/ORCL" --project src/Refugio.Api
+dotnet user-secrets set "Jwt:Chave" "$(openssl rand -base64 48)" --project src/Refugio.Api
+dotnet run --project src/Refugio.Api      # http://localhost:5159/swagger
+dotnet test                               # testes unitários e de integração
+```
+
+Na primeira execução, a API cria as tabelas e os usuários de teste (senha `Senha@123`): `gestor@refugio.com` (GESTOR), `maria@email.com` e `jose@email.com` (IDOSO).
+
+## Fluxo de usuário (Postman)
+
+No Postman, crie as variáveis `baseUrl` (`https://refugio-api-gs.eastus.cloudapp.azure.com` ou `http://localhost:5159`), `tokenIdoso` e `tokenGestor`. Cada bloco abaixo pode ser colado em **Import → Raw text**. Troque as datas por uma data futura.
+
+### Idoso
+
+**1. Cadastro**: 201, cria sempre IDOSO
+
+```bash
+curl -X POST "{{baseUrl}}/auth/registrar" -H "Content-Type: application/json" -d '{"nome":"Ana Lima","email":"ana.lima@email.com","senha":"Senha@123"}'
+```
+
+**2. Login**: 200; copie o `token` para `tokenIdoso`
+
+```bash
+curl -X POST "{{baseUrl}}/auth/login" -H "Content-Type: application/json" -d '{"email":"maria@email.com","senha":"Senha@123"}'
+```
+
+**3. Perfil**
+
+```bash
+curl "{{baseUrl}}/api/v1/usuarios/me" -H "Authorization: Bearer {{tokenIdoso}}"
+```
+
+**4. Salvar contato de emergência**
+
+```bash
+curl -X PUT "{{baseUrl}}/api/v1/usuarios/me" -H "Authorization: Bearer {{tokenIdoso}}" -H "Content-Type: application/json" -d '{"nome":"Maria Souza","bairro":"Penha","telefone":"(11) 98888-0000","contatoEmergenciaNome":"João Souza (filho)","contatoEmergenciaTelefone":"(11) 97777-0000"}'
+```
+
+**5. Refúgios abertos no bairro, com vagas da data**
+
+```bash
+curl "{{baseUrl}}/api/v1/refugios?bairro=Penha&data=2026-11-27&ativo=true&pagina=1&tamanho=10" -H "Authorization: Bearer {{tokenIdoso}}"
+```
+
+**6. Detalhe do refúgio**
+
+```bash
+curl "{{baseUrl}}/api/v1/refugios/1?data=2026-11-27" -H "Authorization: Bearer {{tokenIdoso}}"
+```
+
+**7. Reservar**: 201; repetir com a mesma `Idempotency-Key` devolve a mesma reserva
+
+```bash
+curl -X POST "{{baseUrl}}/api/v1/reservas" -H "Authorization: Bearer {{tokenIdoso}}" -H "Idempotency-Key: 6f1c2a9e-0000-4000-8000-000000000001" -H "Content-Type: application/json" -d '{"refugioId":1,"dataReserva":"2026-11-27"}'
+```
+
+**8. Segunda reserva no mesmo dia**: 409
+
+```bash
+curl -X POST "{{baseUrl}}/api/v1/reservas" -H "Authorization: Bearer {{tokenIdoso}}" -H "Idempotency-Key: 6f1c2a9e-0000-4000-8000-000000000002" -H "Content-Type: application/json" -d '{"refugioId":2,"dataReserva":"2026-11-27"}'
+```
+
+**9. Minhas reservas**
+
+```bash
+curl "{{baseUrl}}/api/v1/reservas/minhas" -H "Authorization: Bearer {{tokenIdoso}}"
+```
+
+**10. Comprovante** (use o `id` da reserva)
+
+```bash
+curl "{{baseUrl}}/api/v1/reservas/1" -H "Authorization: Bearer {{tokenIdoso}}"
+```
+
+**11. Cancelar**: 204
+
+```bash
+curl -X DELETE "{{baseUrl}}/api/v1/reservas/1" -H "Authorization: Bearer {{tokenIdoso}}"
+```
+
+### Gestor
+
+**12. Login**: copie o `token` para `tokenGestor`
+
+```bash
+curl -X POST "{{baseUrl}}/auth/login" -H "Content-Type: application/json" -d '{"email":"gestor@refugio.com","senha":"Senha@123"}'
+```
+
+**13. Endereço pelo CEP**
+
+```bash
+curl "{{baseUrl}}/api/v1/cep/03601000" -H "Authorization: Bearer {{tokenGestor}}"
+```
+
+**14. Criar refúgio**: 201 com `Location`
+
+```bash
+curl -X POST "{{baseUrl}}/api/v1/refugios" -H "Authorization: Bearer {{tokenGestor}}" -H "Content-Type: application/json" -d '{"nome":"Biblioteca Municipal da Penha","tipo":"BIBLIOTECA","cep":"03601-000","endereco":"Rua Exemplo, 100","bairro":"Penha","capacidade":20,"abre":"08:00","fecha":"20:00","acessivel":true,"ativo":true}'
+```
+
+**15. Editar refúgio** (use o `id` criado)
+
+```bash
+curl -X PUT "{{baseUrl}}/api/v1/refugios/6" -H "Authorization: Bearer {{tokenGestor}}" -H "Content-Type: application/json" -d '{"nome":"Biblioteca Municipal da Penha","tipo":"BIBLIOTECA","cep":"03601-000","endereco":"Rua Exemplo, 100","bairro":"Penha","capacidade":25,"abre":"08:00","fecha":"21:00","acessivel":true,"ativo":false}'
+```
+
+**16. Excluir refúgio**: 204; 409 se houver reservas ativas futuras
+
+```bash
+curl -X DELETE "{{baseUrl}}/api/v1/refugios/6" -H "Authorization: Bearer {{tokenGestor}}"
+```
+
+### Saúde
+
+```bash
+curl "{{baseUrl}}/health"
+```
+
+Erros sempre em ProblemDetails (`title`, `detail` e, na validação, `errors` por campo): 400 validação, 401 sem login, 403 papel sem permissão, 404 não encontrado, 409 sem vaga ou conflito, 422 refúgio inativo, 429 excesso de requisições (`Retry-After`).
