@@ -101,6 +101,30 @@ Os testes de integração sobem a API real contra o Oracle configurado nos user-
     ConnectionStrings__Refugio: $(ConnectionStrings__Refugio)
 ```
 
+## Deploy no Azure (VM)
+
+A API roda numa VM Linux no Azure, atrás do Caddy, que emite e renova o certificado HTTPS da Let's Encrypt. HTTPS é obrigatório para o app: o Android bloqueia HTTP sem TLS em builds de release.
+
+| | |
+|---|---|
+| URL da API | **https://refugio-api-gs.eastus.cloudapp.azure.com** |
+| Swagger | https://refugio-api-gs.eastus.cloudapp.azure.com/swagger |
+| Para o app | `EXPO_PUBLIC_API_URL=https://refugio-api-gs.eastus.cloudapp.azure.com` |
+| Recursos | grupo `rg-refugio-api` (eastus): VM `vm-refugio-api` (Ubuntu 24.04, Standard_D2as_v4), IP estático, NSG |
+| Rede | 80/443 abertas; SSH só para o IP de quem provisionou; a porta 8080 da API não é exposta |
+
+**A VM fica desligada quando não está em uso** (para economizar crédito). Para usar ou apresentar:
+
+```bash
+az vm start -g rg-refugio-api -n vm-refugio-api       # religa; a API sobe sozinha em ~1 minuto
+bash scripts/validar-endpoints.sh                      # confere todos os endpoints (51 verificações)
+az vm deallocate -g rg-refugio-api -n vm-refugio-api  # desliga de novo
+```
+
+Desligada (`deallocate`), não há cobrança de computação; o IP e o domínio continuam reservados. O disco e o IP estático custam alguns dólares por mês.
+
+Para recriar tudo do zero: [scripts/provisionar-vm.ps1](scripts/provisionar-vm.ps1) (Azure CLI). Ele lê as credenciais do `.env` local, gera uma chave JWT nova para a VM e sobe API + Caddy com [scripts/vm/docker-compose.vm.yml](scripts/vm/docker-compose.vm.yml).
+
 ## Usuários de teste
 
 Criados pelo seed na primeira execução. A senha vem de `Seed:SenhaUsuarios` (padrão `Senha@123`).
