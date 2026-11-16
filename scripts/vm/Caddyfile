@@ -1,0 +1,8 @@
+# HTTPS automático para o domínio da VM e repasse para a API (contêiner "api", porta 8080).
+{$DOMINIO} {
+	encode gzip
+	reverse_proxy api:8080 {
+		# A API recebe o IP real do cliente (usado no rate limit por IP).
+		header_up X-Forwarded-For {remote_host}
+	}
+}
