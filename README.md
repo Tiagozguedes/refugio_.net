@@ -33,18 +33,13 @@ O **Refúgio** ajuda idosos a enfrentar ondas de calor. Prédios públicos fresc
 | Documentação | OpenAPI + Swagger UI (`/swagger`) |
 | Monitoramento | Health Checks (`/health`: API, banco e ViaCEP) |
 | Testes | xUnit: unitários (regras de negócio) e de integração (WebApplicationFactory + Oracle) |
-| Deploy | Docker, Caddy (HTTPS automático) e VM Linux no Azure |
+| Deploy | Docker no Render (Web Service com HTTPS) |
 
 Camadas: `Domain` (regras) ← `Application` (casos de uso, DTOs, validação) ← `Infrastructure` (EF Core, JWT, ViaCEP) ← `Api` (endpoints).
 
 ## Como fazer funcionar
 
-**Na nuvem (Azure):** a API fica em **https://refugio-api-gs.eastus.cloudapp.azure.com**. A VM fica desligada quando não está em uso:
-
-```bash
-az vm start -g rg-refugio-api -n vm-refugio-api        # liga; a API sobe sozinha em ~1 minuto
-az vm deallocate -g rg-refugio-api -n vm-refugio-api   # desliga
-```
+**Na nuvem (Render):** a API fica em **https://refugio-net.onrender.com** (Swagger em `/swagger`, saúde em `/health`). O Render publica a branch `main` com o [Dockerfile](dockerfiles/Dockerfile); a conexão com o Oracle e a chave JWT ficam nas variáveis de ambiente do serviço, fora do repositório. No plano gratuito o serviço dorme sem uso: a primeira requisição pode levar cerca de um minuto.
 
 **Local:** precisa do .NET SDK 10 e de acesso ao Oracle.
 
@@ -61,7 +56,7 @@ Na primeira execução, a API cria as tabelas e os usuários de teste (senha `Se
 
 ## Fluxo de usuário (Postman)
 
-No Postman, crie as variáveis `baseUrl` (`https://refugio-api-gs.eastus.cloudapp.azure.com` ou `http://localhost:5159`), `tokenIdoso` e `tokenGestor`. Cada bloco abaixo pode ser colado em **Import → Raw text**. Troque as datas por uma data futura.
+No Postman, crie as variáveis `baseUrl` (`https://refugio-net.onrender.com` ou `http://localhost:5159`), `tokenIdoso` e `tokenGestor`. Cada bloco abaixo pode ser colado em **Import → Raw text**. Troque as datas por uma data futura.
 
 ### Idoso
 
