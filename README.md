@@ -165,3 +165,13 @@ curl "{{baseUrl}}/health"
 ```
 
 Erros sempre em ProblemDetails (`title`, `detail` e, na validação, `errors` por campo): 400 validação, 401 sem login, 403 papel sem permissão, 404 não encontrado, 409 sem vaga ou conflito, 422 refúgio inativo, 429 excesso de requisições (`Retry-After`).
+
+## Uso de IA generativa
+
+IA foi usada de forma bem relevante no projeto, pois participou de forma assistente no planejamento do produto, arquitetura e criação de código com supervisão humana. Teve um papel ainda maior na correção de erros e criação de testes.
+
+| Ferramenta | Para que foi usada |
+|---|---|
+| Claude Code (Anthropic) | Planejamento do produto e da arquitetura, escrita de código, correção de erros, criação de testes, deploy e revisão da documentação |
+
+Ao final, o código e texto gerado por IA foi lido, testado e revisado pelo grupo.
