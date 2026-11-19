@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Valida todos os endpoints da Refúgio API pela URL pública. Só faz requisições HTTP.
-B="${1:-https://refugio-api-gs.eastus.cloudapp.azure.com}"
+B="${1:-https://refugio-net.onrender.com}"
 OK=0; FAIL=0
 H='content-type: application/json'
 
