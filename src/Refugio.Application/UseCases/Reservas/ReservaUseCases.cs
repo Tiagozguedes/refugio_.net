@@ -81,7 +81,8 @@ public sealed class CriarReserva(
         }
         catch (RegistroDuplicadoException)
         {
-            // Mesmo idoso reservando dois refúgios diferentes ao mesmo tempo: o índice único barra o segundo.
+            // O bloqueio do idoso já impede duas reservas no mesmo dia pela API. O ORA-00001 vem do índice
+            // UX_T_RFG_RESERVA_IDOSO_DIA_ATIVA (saveUs-database), que barra também gravações feitas fora dela.
             throw ReservaErros.JaTemReservaNoDia(data);
         }
 
