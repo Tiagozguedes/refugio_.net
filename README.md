@@ -1,4 +1,4 @@
-# Refúgio API
+# SaveUs — Refúgio API (.NET)
 
 ## Integrantes
 
@@ -11,11 +11,20 @@
 
 ## Resumo
 
-O **Refúgio** ajuda idosos a enfrentar ondas de calor. Prédios públicos frescos (bibliotecas, CEUs, UBSs, centros comunitários) viram **refúgios climáticos**: o idoso encontra um refúgio aberto no bairro, reserva uma vaga e mostra o comprovante na porta. O gestor cadastra e mantém os refúgios. ODS 3, 11 e 13.
+O **SaveUs** ajuda idosos a enfrentar ondas de calor. Prédios públicos frescos (bibliotecas, CEUs, UBSs, centros comunitários) viram **refúgios climáticos**: o idoso encontra um refúgio aberto no bairro, reserva uma vaga e mostra o comprovante na porta. O gestor cadastra e mantém os refúgios. ODS 3, 11 e 13.
 
 ## Papel desta API
 
-É o backend da solução e a única API que o app Mobile consome. Ela:
+É o backend da **área do idoso** e dono do schema Oracle `T_RFG_*`. O app Mobile consome duas APIs que usam o mesmo banco, o mesmo JWT e o mesmo contrato JSON e de erro:
+
+| Repositório | Papel |
+|---|---|
+| `refugio_.net` (este) | Login, cadastro, refúgios (leitura), reservas e perfil do idoso |
+| `saveUs-java` | Área do gestor (CRUD de refúgios e CEP), login e Guia do Calor com IA (Spring AI) |
+| `saveUs-mobile` | App React Native que consome as duas APIs |
+| `saveUs-database` | Regras de negócio em PL/SQL, auditoria e versão MongoDB sobre as mesmas tabelas |
+
+Esta API também mantém o CRUD do gestor, com o mesmo contrato do Java: se o backend Java estiver fora, o app usa este. Ela:
 
 - autentica idosos e gestores (JWT) e controla o acesso por papel;
 - mantém os refúgios (CRUD do gestor) e preenche o endereço pelo CEP (ViaCEP);
@@ -52,7 +61,7 @@ dotnet test                               # testes unitários e de integração
 
 Na primeira execução, a API cria as tabelas e os usuários de teste (senha `Senha@123`): `gestor@refugio.com` (GESTOR), `maria@email.com` e `jose@email.com` (IDOSO).
 
-**Só o banco:** [scripts/script-bd.sql](scripts/script-bd.sql) cria as tabelas e os mesmos dados iniciais, inclusive o gestor. O cadastro pela API cria apenas idosos, então o gestor só existe por esse script ou pelo seed da API. Rode no SQL Developer com F5; a parte de dados pode ser executada de novo sem duplicar.
+**Só o banco:** [scripts/script-bd.sql](scripts/script-bd.sql) cria as tabelas e os mesmos dados iniciais, inclusive o gestor. O cadastro pela API cria apenas idosos, então o gestor só existe por esse script ou pelo seed da API. Rode no SQL Developer com F5; a parte de dados pode ser executada de novo sem duplicar. As regras de negócio em PL/SQL (pacotes, gatilhos de auditoria e o índice que garante uma reserva ativa por idoso por dia) ficam no repositório `saveUs-database`, que roda sobre estas mesmas tabelas sem apagar dados.
 
 ## Fluxo de usuário (Postman)
 
